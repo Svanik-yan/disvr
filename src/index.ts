@@ -139,13 +139,15 @@ app.post("/admin/reindex", async (c) => {
   return c.json({ status: "ok", services_indexed: services.length });
 });
 
-// MCP Server endpoint
+// MCP Server endpoint (Streamable HTTP via Durable Objects)
+const mcpHandler = DisvrMcpAgent.serve("/mcp", { binding: "MCP_AGENT" });
+
 app.all("/mcp", (c) => {
-  return DisvrMcpAgent.serve("/mcp").fetch(c.req.raw, c.env, c.executionCtx);
+  return mcpHandler.fetch(c.req.raw, c.env, c.executionCtx);
 });
 
 app.all("/mcp/*", (c) => {
-  return DisvrMcpAgent.serve("/mcp").fetch(c.req.raw, c.env, c.executionCtx);
+  return mcpHandler.fetch(c.req.raw, c.env, c.executionCtx);
 });
 
 // Cron handler

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "disvr": {
+      "type": "url",
+      "url": "https://disvr.yanchen330.workers.dev/mcp"
+    }
+  }
+}
