@@ -278,3 +278,84 @@ export async function getServiceCount(db: D1Database): Promise<number> {
     .first<{ count: number }>();
   return result?.count ?? 0;
 }
+
+// ─── Public API: Service Listing ───
+
+export async function getServicesPaginated(
+  db: D1Database,
+  options: { page: number; limit: number; search?: string; platform?: string; sort?: string }
+): Promise<{ services: Service[]; total: number; page: number; limit: number }> {
+  const { page, limit, search, platform, sort } = options;
+  const offset = (page - 1) * limit;
+  const conditions: string[] = [];
+  const params: (string | number)[] = [];
+  let paramIdx = 1;
+
+  if (search && search.trim().length > 0) {
+    conditions.push(`(name LIKE ?${paramIdx} OR description LIKE ?${paramIdx})`);
+    params.push(`%${search.trim()}%`);
+    paramIdx++;
+  }
+  if (platform && platform !== "all") {
+    conditions.push(`platform = ?${paramIdx}`);
+    params.push(platform);
+    paramIdx++;
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+  let orderBy = "ORDER BY reputation_score DESC NULLS LAST";
+  if (sort === "name") orderBy = "ORDER BY name ASC";
+  else if (sort === "calls") orderBy = "ORDER BY total_calls DESC";
+  else if (sort === "price") orderBy = "ORDER BY json_extract(pricing, '$.price_usd') ASC";
+
+  const countResult = await db
+    .prepare(`SELECT COUNT(*) as count FROM services ${where}`)
+    .bind(...params)
+    .first<{ count: number }>();
+  const total = countResult?.count ?? 0;
+
+  const result = await db
+    .prepare(`SELECT * FROM services ${where} ${orderBy} LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`)
+    .bind(...params, limit, offset)
+    .all<ServiceRow>();
+
+  return {
+    services: (result.results ?? []).map(rowToService),
+    total,
+    page,
+    limit,
+  };
+}
+
+// ─── Public API: Aggregated Stats ───
+
+export async function getSystemStats(db: D1Database): Promise<{
+  total_services: number;
+  total_reports: number;
+  avg_success_rate: number | null;
+  avg_latency_ms: number | null;
+  platforms: { platform: string; count: number }[];
+  top_services: { name: string; reputation_score: number | null; total_calls: number }[];
+  recent_reports: { service_id: string; success: number; created_at: string }[];
+}> {
+  const [countRes, reportRes, rateRes, latRes, platformRes, topRes, recentRes] = await Promise.all([
+    db.prepare("SELECT COUNT(*) as c FROM services").first<{ c: number }>(),
+    db.prepare("SELECT COUNT(*) as c FROM call_reports").first<{ c: number }>(),
+    db.prepare("SELECT AVG(success_rate) as v FROM services WHERE success_rate IS NOT NULL").first<{ v: number | null }>(),
+    db.prepare("SELECT AVG(latency_p95_ms) as v FROM services WHERE latency_p95_ms IS NOT NULL").first<{ v: number | null }>(),
+    db.prepare("SELECT platform, COUNT(*) as count FROM services GROUP BY platform ORDER BY count DESC").all<{ platform: string; count: number }>(),
+    db.prepare("SELECT name, reputation_score, total_calls FROM services ORDER BY total_calls DESC, reputation_score DESC LIMIT 10").all<{ name: string; reputation_score: number | null; total_calls: number }>(),
+    db.prepare("SELECT service_id, success, created_at FROM call_reports ORDER BY created_at DESC LIMIT 20").all<{ service_id: string; success: number; created_at: string }>(),
+  ]);
+
+  return {
+    total_services: countRes?.c ?? 0,
+    total_reports: reportRes?.c ?? 0,
+    avg_success_rate: rateRes?.v ?? null,
+    avg_latency_ms: latRes?.v ?? null,
+    platforms: platformRes.results ?? [],
+    top_services: topRes.results ?? [],
+    recent_reports: recentRes.results ?? [],
+  };
+}

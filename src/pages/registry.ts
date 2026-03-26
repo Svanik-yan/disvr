@@ -35,6 +35,7 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 .glass-card { background: rgba(25, 37, 64, 0.4); backdrop-filter: blur(20px); border: 1px solid rgba(64, 72, 93, 0.15); }
 .gradient-text { background: linear-gradient(135deg, #b79fff 0%, #62fae3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 .glow-blob { filter: blur(80px); z-index: -1; }
+.platform-btn.active { background: rgba(183,159,255,0.2); border-color: rgba(183,159,255,0.5); color: #b79fff; }
 </style>
 </head>
 <body class="overflow-x-hidden">
@@ -61,188 +62,213 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 
 <!-- Main Content -->
 <main class="mt-20 p-8 lg:p-12 min-h-screen max-w-7xl mx-auto">
-  <header class="mb-12 flex flex-col md:flex-row justify-between items-end gap-6">
+  <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
     <div class="max-w-2xl">
       <h1 class="text-5xl lg:text-6xl font-headline font-extrabold tracking-tighter mb-4 leading-[0.9] gradient-text">Provider Registry</h1>
       <p class="text-on-surface-variant text-lg max-w-lg leading-relaxed">
-        All indexed MCP services ranked by value score. Crawled hourly from Smithery and more sources.
+        Browse all indexed MCP services. Search, filter, and explore the tools your agents can discover.
       </p>
     </div>
-    <div class="flex gap-4">
-      <div class="glass-card px-6 py-3 rounded-full flex items-center gap-3">
-        <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-        <span class="text-sm text-on-surface uppercase tracking-widest font-bold" id="service-count">Loading...</span>
-      </div>
+    <div class="glass-card px-6 py-3 rounded-full flex items-center gap-3">
+      <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
+      <span class="text-sm text-on-surface uppercase tracking-widest font-bold" id="service-count">Loading...</span>
     </div>
   </header>
 
-  <!-- Featured Providers -->
-  <section class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-    <div class="glass-card p-8 rounded-xl group relative overflow-hidden flex flex-col justify-between h-72">
-      <div class="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-150"></div>
-      <div>
-        <div class="flex justify-between items-start mb-6">
-          <div class="w-14 h-14 bg-surface-container-high rounded-lg flex items-center justify-center border border-white/5">
-            <span class="material-symbols-outlined text-3xl text-primary">database</span>
-          </div>
-          <span class="text-[10px] font-bold py-1 px-3 rounded-full bg-secondary/10 text-secondary border border-secondary/20 uppercase">Primary Source</span>
-        </div>
-        <h3 class="text-2xl font-headline font-bold text-on-surface mb-2">Smithery Registry</h3>
-        <p class="text-on-surface-variant text-sm leading-snug">16,000+ MCP servers indexed. Hourly crawl keeps data fresh. Primary source for service discovery.</p>
+  <!-- Search & Filters -->
+  <div class="glass-card rounded-xl p-6 mb-8">
+    <div class="flex flex-col md:flex-row gap-4">
+      <div class="flex-1 relative">
+        <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+        <input id="search-input" type="text" placeholder="Search services by name or description..."
+          class="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl pl-12 pr-4 py-3 text-on-surface placeholder-on-surface-variant/60 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"/>
       </div>
-      <div class="flex justify-between items-center mt-4">
-        <span class="text-xs text-on-surface-variant uppercase tracking-widest">330+ Indexed</span>
-        <a href="https://smithery.ai" target="_blank" class="text-secondary text-sm font-bold flex items-center gap-1 group-hover:gap-2 transition-all">
-          Visit <span class="material-symbols-outlined text-sm">arrow_forward</span>
-        </a>
-      </div>
+      <select id="sort-select" class="bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary/50 min-w-[160px]">
+        <option value="reputation">Sort: Reputation</option>
+        <option value="name">Sort: Name</option>
+        <option value="calls">Sort: Most Used</option>
+        <option value="price">Sort: Price (Low)</option>
+      </select>
     </div>
+    <div class="flex flex-wrap gap-2 mt-4" id="platform-filters">
+      <button class="platform-btn active text-xs font-bold px-4 py-1.5 rounded-full border border-outline-variant/20 transition-all hover:bg-white/5" data-platform="all">All Platforms</button>
+    </div>
+  </div>
 
-    <div class="glass-card p-8 rounded-xl group relative overflow-hidden flex flex-col justify-between h-72">
-      <div class="absolute top-0 right-0 w-32 h-32 bg-secondary/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-150"></div>
-      <div>
-        <div class="flex justify-between items-start mb-6">
-          <div class="w-14 h-14 bg-surface-container-high rounded-lg flex items-center justify-center border border-white/5">
-            <span class="material-symbols-outlined text-3xl text-secondary">search</span>
-          </div>
-          <span class="text-[10px] font-bold py-1 px-3 rounded-full bg-primary/10 text-primary border border-primary/20 uppercase">Core Engine</span>
-        </div>
-        <h3 class="text-2xl font-headline font-bold text-on-surface mb-2">Vector Search</h3>
-        <p class="text-on-surface-variant text-sm leading-snug">OpenAI text-embedding-3-small (1536 dim) + CF Vectorize. Semantic matching with FTS5 fallback.</p>
-      </div>
-      <div class="flex justify-between items-center mt-4">
-        <span class="text-xs text-on-surface-variant uppercase tracking-widest">Dual-Path</span>
-        <span class="text-primary text-sm font-bold">Embed + FTS5</span>
+  <!-- Services Grid -->
+  <div id="services-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <div class="col-span-full flex justify-center py-20">
+      <div class="flex items-center gap-3 text-on-surface-variant">
+        <span class="material-symbols-outlined animate-spin">progress_activity</span>
+        Loading services...
       </div>
     </div>
+  </div>
 
-    <div class="glass-card p-8 rounded-xl group relative overflow-hidden flex flex-col justify-between h-72">
-      <div class="absolute top-0 right-0 w-32 h-32 bg-tertiary/10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:scale-150"></div>
-      <div>
-        <div class="flex justify-between items-start mb-6">
-          <div class="w-14 h-14 bg-surface-container-high rounded-lg flex items-center justify-center border border-white/5">
-            <span class="material-symbols-outlined text-3xl text-tertiary">autorenew</span>
-          </div>
-          <span class="text-[10px] font-bold py-1 px-3 rounded-full bg-tertiary/10 text-tertiary border border-tertiary/20 uppercase">Feedback</span>
-        </div>
-        <h3 class="text-2xl font-headline font-bold text-on-surface mb-2">Closed-Loop Ranking</h3>
-        <p class="text-on-surface-variant text-sm leading-snug">Agents report call results. Success rate, latency, cost per success feed back into the 4-dimension value score.</p>
-      </div>
-      <div class="flex justify-between items-center mt-4">
-        <span class="text-xs text-on-surface-variant uppercase tracking-widest">4-Dim Score</span>
-        <span class="text-tertiary text-sm font-bold">Live Ranking</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Services Table -->
-  <section class="glass-card rounded-xl overflow-hidden mb-12">
-    <div class="px-8 py-6 border-b border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
-      <div>
-        <h2 class="text-2xl font-headline font-bold text-on-surface">Indexed Services</h2>
-        <p class="text-on-surface-variant text-xs uppercase tracking-widest mt-1">From Smithery registry &middot; Updated hourly</p>
-      </div>
-      <div class="flex gap-3">
-        <button onclick="loadServices()" class="bg-surface-container-highest border border-white/10 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 hover:bg-white/10 transition-colors">
-          <span class="material-symbols-outlined text-sm">refresh</span> Refresh
-        </button>
-      </div>
-    </div>
-    <div class="overflow-x-auto">
-      <table class="w-full text-left">
-        <thead>
-          <tr class="bg-surface-variant/20">
-            <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Service</th>
-            <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Platform</th>
-            <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Capabilities</th>
-            <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Reputation</th>
-            <th class="px-8 py-4 text-[10px] font-black uppercase tracking-widest text-on-surface-variant">Status</th>
-          </tr>
-        </thead>
-        <tbody id="services-tbody" class="divide-y divide-white/5">
-          <tr><td colspan="5" class="px-8 py-12 text-center text-on-surface-variant">Loading services from API...</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="px-8 py-4 bg-surface-variant/10 flex justify-between items-center">
-      <span class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold" id="table-count">Loading...</span>
-    </div>
-  </section>
-
-  <!-- Bottom Stats -->
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-    <div class="glass-card p-6 rounded-xl flex items-center gap-5">
-      <div class="p-3 bg-primary/20 rounded-xl"><span class="material-symbols-outlined text-primary">hub</span></div>
-      <div>
-        <div class="text-2xl font-headline font-black text-on-surface tracking-tighter" id="stat-services">--</div>
-        <div class="text-[10px] text-on-surface-variant uppercase tracking-widest">Indexed Services</div>
-      </div>
-    </div>
-    <div class="glass-card p-6 rounded-xl flex items-center gap-5">
-      <div class="p-3 bg-secondary/20 rounded-xl"><span class="material-symbols-outlined text-secondary">flash_on</span></div>
-      <div>
-        <div class="text-2xl font-headline font-black text-on-surface tracking-tighter">4-Dim</div>
-        <div class="text-[10px] text-on-surface-variant uppercase tracking-widest">Value Scoring</div>
-      </div>
-    </div>
-    <div class="glass-card p-6 rounded-xl flex items-center gap-5">
-      <div class="p-3 bg-tertiary/20 rounded-xl"><span class="material-symbols-outlined text-tertiary">schedule</span></div>
-      <div>
-        <div class="text-2xl font-headline font-black text-on-surface tracking-tighter">1h</div>
-        <div class="text-[10px] text-on-surface-variant uppercase tracking-widest">Crawl Interval</div>
-      </div>
-    </div>
-    <div class="glass-card p-6 rounded-xl flex items-center gap-5">
-      <div class="p-3 bg-primary/20 rounded-xl"><span class="material-symbols-outlined text-primary">cloud_sync</span></div>
-      <div>
-        <div class="text-2xl font-headline font-black text-on-surface tracking-tighter">Smithery</div>
-        <div class="text-[10px] text-on-surface-variant uppercase tracking-widest">Data Source</div>
-      </div>
+  <!-- Pagination -->
+  <div class="flex justify-between items-center glass-card rounded-xl px-6 py-4" id="pagination">
+    <span class="text-sm text-on-surface-variant" id="page-info">Page 1</span>
+    <div class="flex gap-2">
+      <button id="prev-btn" onclick="changePage(-1)" disabled class="px-4 py-2 rounded-lg bg-surface-container-highest border border-white/10 text-sm font-bold disabled:opacity-30 hover:bg-white/10 transition-colors flex items-center gap-1">
+        <span class="material-symbols-outlined text-sm">chevron_left</span> Prev
+      </button>
+      <button id="next-btn" onclick="changePage(1)" class="px-4 py-2 rounded-lg bg-surface-container-highest border border-white/10 text-sm font-bold disabled:opacity-30 hover:bg-white/10 transition-colors flex items-center gap-1">
+        Next <span class="material-symbols-outlined text-sm">chevron_right</span>
+      </button>
     </div>
   </div>
 </main>
 
+<!-- Footer -->
+<footer class="w-full py-12 flex flex-col items-center gap-4 border-t border-slate-800/30">
+  <div class="flex gap-8 mb-4">
+    <a class="text-xs tracking-widest uppercase text-slate-600 hover:text-slate-300 transition-colors" href="/">Home</a>
+    <a class="text-xs tracking-widest uppercase text-slate-600 hover:text-slate-300 transition-colors" href="https://github.com/Svanik-yan/disvr" target="_blank">GitHub</a>
+    <a class="text-xs tracking-widest uppercase text-slate-600 hover:text-slate-300 transition-colors" href="https://api.disvr.top/health" target="_blank">API</a>
+  </div>
+  <p class="text-xs tracking-widest uppercase text-slate-500">&copy; 2026 Disvr. All rights reserved.</p>
+</footer>
+
 <script>
+const API = 'https://api.disvr.top';
+let currentPage = 1;
+let currentSearch = '';
+let currentPlatform = 'all';
+let currentSort = 'reputation';
+let totalPages = 1;
+let debounceTimer = null;
+
+// Search input with debounce
+document.getElementById('search-input').addEventListener('input', function(e) {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(function() {
+    currentSearch = e.target.value;
+    currentPage = 1;
+    loadServices();
+  }, 300);
+});
+
+document.getElementById('search-input').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    clearTimeout(debounceTimer);
+    currentSearch = e.target.value;
+    currentPage = 1;
+    loadServices();
+  }
+});
+
+document.getElementById('sort-select').addEventListener('change', function(e) {
+  currentSort = e.target.value;
+  currentPage = 1;
+  loadServices();
+});
+
+function selectPlatform(platform) {
+  currentPlatform = platform;
+  currentPage = 1;
+  document.querySelectorAll('.platform-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.platform === platform);
+  });
+  loadServices();
+}
+
+function changePage(delta) {
+  currentPage = Math.max(1, Math.min(totalPages, currentPage + delta));
+  loadServices();
+}
+
+function renderServiceCard(s) {
+  var rep = s.reputation_score !== null ? s.reputation_score.toFixed(1) : 'N/A';
+  var repColor = s.reputation_score >= 3.5 ? 'text-secondary' : s.reputation_score >= 2 ? 'text-primary' : 'text-on-surface-variant';
+  var price = s.pricing && s.pricing.price_usd > 0 ? ('$' + s.pricing.price_usd.toFixed(4)) : 'Free';
+  var priceColor = s.pricing && s.pricing.price_usd === 0 ? 'text-secondary' : 'text-on-surface';
+  var desc = s.description ? (s.description.length > 120 ? s.description.substring(0, 120) + '...' : s.description) : 'No description';
+  var caps = (s.capabilities || []).slice(0, 3);
+  var successRate = s.success_rate !== null ? (s.success_rate * 100).toFixed(0) + '%' : '--';
+  var latency = s.latency_p95_ms !== null ? s.latency_p95_ms + 'ms' : '--';
+  var sourceLink = s.source_url ? '<a href="' + s.source_url + '" target="_blank" class="text-secondary text-xs font-bold flex items-center gap-1 hover:underline"><span class="material-symbols-outlined text-sm">open_in_new</span>Source</a>' : '';
+
+  return '<div class="glass-card rounded-xl p-6 hover:border-primary/30 transition-all group">' +
+    '<div class="flex justify-between items-start mb-3">' +
+      '<div class="flex items-center gap-3">' +
+        '<div class="w-10 h-10 rounded-lg bg-surface-container-highest border border-white/5 flex items-center justify-center">' +
+          '<span class="material-symbols-outlined text-primary">widgets</span>' +
+        '</div>' +
+        '<div>' +
+          '<h3 class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">' + s.name + '</h3>' +
+          '<span class="text-[10px] text-on-surface-variant uppercase tracking-widest">' + s.platform + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<span class="text-lg font-headline font-bold ' + repColor + '">' + rep + '</span>' +
+    '</div>' +
+    '<p class="text-xs text-on-surface-variant leading-relaxed mb-4">' + desc + '</p>' +
+    (caps.length > 0 ? '<div class="flex flex-wrap gap-1.5 mb-4">' + caps.map(function(c) {
+      return '<span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] border border-primary/20">' + c + '</span>';
+    }).join('') + '</div>' : '') +
+    '<div class="grid grid-cols-3 gap-2 pt-3 border-t border-white/5">' +
+      '<div class="text-center"><div class="text-xs font-bold ' + priceColor + '">' + price + '</div><div class="text-[9px] text-on-surface-variant uppercase">Price</div></div>' +
+      '<div class="text-center"><div class="text-xs font-bold text-on-surface">' + successRate + '</div><div class="text-[9px] text-on-surface-variant uppercase">Success</div></div>' +
+      '<div class="text-center"><div class="text-xs font-bold text-on-surface">' + latency + '</div><div class="text-[9px] text-on-surface-variant uppercase">Latency</div></div>' +
+    '</div>' +
+    (sourceLink ? '<div class="mt-3 pt-3 border-t border-white/5 flex justify-end">' + sourceLink + '</div>' : '') +
+  '</div>';
+}
+
 async function loadServices() {
+  var grid = document.getElementById('services-grid');
+  grid.innerHTML = '<div class="col-span-full flex justify-center py-20"><div class="flex items-center gap-3 text-on-surface-variant"><span class="material-symbols-outlined animate-spin">progress_activity</span>Loading...</div></div>';
+
   try {
-    const healthRes = await fetch('https://api.disvr.top/health');
-    const health = await healthRes.json();
-    const count = health.services_indexed || 0;
-    document.getElementById('service-count').textContent = count + ' Services Live';
-    document.getElementById('stat-services').textContent = count;
-    document.getElementById('table-count').textContent = 'Showing top results of ' + count + ' indexed services';
+    var params = new URLSearchParams({ page: currentPage, limit: 21 });
+    if (currentSearch) params.set('search', currentSearch);
+    if (currentPlatform !== 'all') params.set('platform', currentPlatform);
+    if (currentSort) params.set('sort', currentSort);
 
-    // Try discover with a broad query to show some services
-    const discoverRes = await fetch('https://api.disvr.top/discover', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-key' },
-      body: JSON.stringify({ need: 'popular tools and services' })
-    });
-    const data = await discoverRes.json();
-    const tbody = document.getElementById('services-tbody');
+    var res = await fetch(API + '/api/services?' + params.toString());
+    var data = await res.json();
 
-    if (data.recommendations && data.recommendations.length > 0) {
-      tbody.innerHTML = data.recommendations.map(function(r) {
-        const rep = r.reputation !== null ? (r.reputation.toFixed(1) + '/5') : 'N/A';
-        const caps = r.reason ? r.reason.substring(0, 60) + '...' : 'MCP Service';
-        return '<tr class="hover:bg-white/5 transition-colors">' +
-          '<td class="px-8 py-6"><div class="flex items-center gap-4">' +
-          '<div class="w-10 h-10 rounded-lg bg-surface-container-highest border border-white/5 flex items-center justify-center">' +
-          '<span class="material-symbols-outlined text-primary text-xl">widgets</span></div>' +
-          '<div><div class="text-sm font-bold text-on-surface">' + r.service + '</div>' +
-          '<div class="text-[10px] text-on-surface-variant">' + r.platform + '</div></div></div></td>' +
-          '<td class="px-8 py-6"><span class="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] border border-primary/20">' + r.platform + '</span></td>' +
-          '<td class="px-8 py-6"><span class="text-xs text-on-surface-variant">' + caps + '</span></td>' +
-          '<td class="px-8 py-6"><span class="text-sm font-mono text-secondary">' + rep + '</span></td>' +
-          '<td class="px-8 py-6"><div class="flex items-center gap-2">' +
-          '<div class="w-1.5 h-1.5 rounded-full bg-secondary shadow-[0_0_8px_rgba(98,250,227,0.5)]"></div>' +
-          '<span class="text-xs text-on-surface font-medium">Indexed</span></div></td></tr>';
-      }).join('');
+    document.getElementById('service-count').textContent = data.total + ' Services Indexed';
+    totalPages = Math.ceil(data.total / data.limit);
+
+    if (data.services.length === 0) {
+      grid.innerHTML = '<div class="col-span-full flex flex-col items-center py-20 text-on-surface-variant">' +
+        '<span class="material-symbols-outlined text-5xl mb-4 opacity-30">search_off</span>' +
+        '<p class="text-lg font-bold mb-1">No services found</p>' +
+        '<p class="text-sm">Try a different search or filter</p></div>';
+    } else {
+      grid.innerHTML = data.services.map(renderServiceCard).join('');
+    }
+
+    // Update pagination
+    document.getElementById('page-info').textContent = 'Page ' + currentPage + ' of ' + totalPages + ' (' + data.total + ' services)';
+    document.getElementById('prev-btn').disabled = currentPage <= 1;
+    document.getElementById('next-btn').disabled = currentPage >= totalPages;
+
+    // Build platform filter buttons from first load
+    if (currentPlatform === 'all' && currentSearch === '' && currentPage === 1) {
+      buildPlatformFilters();
     }
   } catch (e) {
-    document.getElementById('service-count').textContent = 'Offline';
+    grid.innerHTML = '<div class="col-span-full flex flex-col items-center py-20 text-error">' +
+      '<span class="material-symbols-outlined text-5xl mb-4">cloud_off</span>' +
+      '<p class="text-lg font-bold">Failed to load services</p>' +
+      '<p class="text-sm text-on-surface-variant">API may be temporarily unavailable</p></div>';
   }
 }
+
+async function buildPlatformFilters() {
+  try {
+    var res = await fetch(API + '/api/stats');
+    var stats = await res.json();
+    var container = document.getElementById('platform-filters');
+    var html = '<button class="platform-btn active text-xs font-bold px-4 py-1.5 rounded-full border border-outline-variant/20 transition-all hover:bg-white/5" data-platform="all" onclick="selectPlatform(\\x27all\\x27)">All (' + stats.total_services + ')</button>';
+    (stats.platforms || []).forEach(function(p) {
+      html += '<button class="platform-btn text-xs font-bold px-4 py-1.5 rounded-full border border-outline-variant/20 transition-all hover:bg-white/5" data-platform="' + p.platform + '" onclick="selectPlatform(\\x27' + p.platform + '\\x27)">' + p.platform + ' (' + p.count + ')</button>';
+    });
+    container.innerHTML = html;
+  } catch(e) {}
+}
+
 loadServices();
 </script>
 </body></html>`;

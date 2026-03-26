@@ -58,211 +58,221 @@ tailwind.config = {
 
 <!-- Main Content -->
 <main class="pt-28 px-8 pb-12 max-w-7xl mx-auto">
-  <header class="mb-12">
-    <h1 class="text-5xl font-extrabold font-headline tracking-tight text-on-surface mb-2">Analytics Dashboard</h1>
-    <p class="text-on-surface-variant text-lg max-w-2xl">Real-time intelligence metrics for the Disvr discovery engine.</p>
+  <header class="mb-12 flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+    <div>
+      <h1 class="text-5xl font-extrabold font-headline tracking-tight text-on-surface mb-2">Analytics Dashboard</h1>
+      <p class="text-on-surface-variant text-lg max-w-2xl">Real-time intelligence metrics from the Disvr discovery engine.</p>
+    </div>
+    <button onclick="loadStats()" class="flex items-center gap-2 px-4 py-2 rounded-lg glass-card text-sm font-bold hover:bg-white/10 transition-colors">
+      <span class="material-symbols-outlined text-sm">refresh</span> Refresh
+    </button>
   </header>
 
-  <!-- Bento Grid -->
-  <div class="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-6 mb-12">
-    <!-- Metric: Services Indexed -->
-    <div class="md:col-span-2 glass-card rounded-xl p-8 flex flex-col justify-between overflow-hidden relative group">
+  <!-- KPI Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+    <div class="glass-card rounded-xl p-6 group relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-secondary/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:scale-150 transition-all"></div>
       <div class="relative z-10">
-        <div class="flex justify-between items-start mb-4">
+        <div class="flex justify-between items-start mb-3">
           <span class="text-on-surface-variant uppercase text-[10px] tracking-widest font-bold">Services Indexed</span>
-          <span class="text-secondary material-symbols-outlined text-3xl">database</span>
+          <span class="material-symbols-outlined text-2xl text-secondary">database</span>
         </div>
-        <div class="text-4xl font-headline font-extrabold text-on-surface mb-1" id="metric-services">--</div>
-        <div class="flex items-center gap-2 text-secondary text-sm font-medium">
-          <span class="material-symbols-outlined text-sm">cloud_sync</span>
-          <span>From Smithery registry</span>
-        </div>
+        <div class="text-4xl font-headline font-extrabold text-on-surface" id="kpi-services">--</div>
+        <div class="text-xs text-on-surface-variant mt-1">From Smithery registry</div>
       </div>
-      <div class="absolute bottom-0 left-0 w-full h-24 opacity-30 group-hover:opacity-50 transition-opacity">
-        <svg class="w-full h-full" viewBox="0 0 400 100">
-          <path d="M0,80 Q50,40 100,70 T200,30 T300,50 T400,10" fill="none" stroke="rgba(98,250,227,0.6)" stroke-width="4"/>
-        </svg>
+    </div>
+    <div class="glass-card rounded-xl p-6 group relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:scale-150 transition-all"></div>
+      <div class="relative z-10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-on-surface-variant uppercase text-[10px] tracking-widest font-bold">Feedback Reports</span>
+          <span class="material-symbols-outlined text-2xl text-primary">feedback</span>
+        </div>
+        <div class="text-4xl font-headline font-extrabold text-on-surface" id="kpi-reports">--</div>
+        <div class="text-xs text-on-surface-variant mt-1">Agent call reports received</div>
+      </div>
+    </div>
+    <div class="glass-card rounded-xl p-6 group relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-secondary/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:scale-150 transition-all"></div>
+      <div class="relative z-10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-on-surface-variant uppercase text-[10px] tracking-widest font-bold">Avg Success Rate</span>
+          <span class="material-symbols-outlined text-2xl text-secondary">check_circle</span>
+        </div>
+        <div class="text-4xl font-headline font-extrabold text-on-surface" id="kpi-success">--</div>
+        <div class="text-xs text-on-surface-variant mt-1">Across services with data</div>
+      </div>
+    </div>
+    <div class="glass-card rounded-xl p-6 group relative overflow-hidden">
+      <div class="absolute top-0 right-0 w-24 h-24 bg-tertiary/10 rounded-full blur-2xl -mr-8 -mt-8 group-hover:scale-150 transition-all"></div>
+      <div class="relative z-10">
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-on-surface-variant uppercase text-[10px] tracking-widest font-bold">Avg Latency</span>
+          <span class="material-symbols-outlined text-2xl text-tertiary">speed</span>
+        </div>
+        <div class="text-4xl font-headline font-extrabold text-on-surface" id="kpi-latency">--</div>
+        <div class="text-xs text-on-surface-variant mt-1">P95 across active services</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+    <!-- Platform Distribution -->
+    <div class="glass-card rounded-xl p-8">
+      <h2 class="text-xl font-headline font-bold mb-6">Platform Distribution</h2>
+      <div id="platform-chart" class="space-y-4">
+        <div class="text-sm text-on-surface-variant">Loading...</div>
       </div>
     </div>
 
-    <!-- Metric: Search Method -->
-    <div class="md:col-span-2 glass-card rounded-xl p-8 flex flex-col justify-between overflow-hidden relative">
-      <div>
-        <div class="flex justify-between items-start mb-4">
-          <span class="text-on-surface-variant uppercase text-[10px] tracking-widest font-bold">Search Pipeline</span>
-          <span class="text-primary material-symbols-outlined text-3xl">manage_search</span>
+    <!-- Ranking Weights -->
+    <div class="glass-card rounded-xl p-8">
+      <h2 class="text-xl font-headline font-bold mb-2">Ranking Weights</h2>
+      <p class="text-xs text-on-surface-variant mb-6">How value_score is computed</p>
+      <div class="h-52 flex items-end justify-around gap-3">
+        <div class="text-center flex-1">
+          <div class="w-full bg-gradient-to-t from-primary/20 to-primary/60 rounded-t-xl mx-auto" style="height: 75%"></div>
+          <p class="text-[10px] text-on-surface-variant mt-2">Semantic</p>
+          <p class="text-xs font-bold text-primary">0.30</p>
         </div>
-        <div class="text-4xl font-headline font-extrabold text-on-surface mb-1">Dual-Path</div>
-        <div class="flex items-center gap-2 text-primary-fixed-dim text-sm font-medium">
-          <span class="material-symbols-outlined text-sm">alt_route</span>
-          <span>Vector + FTS5 fallback</span>
+        <div class="text-center flex-1">
+          <div class="w-full bg-gradient-to-t from-secondary/20 to-secondary/60 rounded-t-xl mx-auto" style="height: 62%"></div>
+          <p class="text-[10px] text-on-surface-variant mt-2">Quality</p>
+          <p class="text-xs font-bold text-secondary">0.25</p>
         </div>
-      </div>
-      <div class="flex gap-1 items-end h-16 mt-4">
-        <div class="bg-primary/20 w-full rounded-t-sm h-[40%]"></div>
-        <div class="bg-primary/20 w-full rounded-t-sm h-[60%]"></div>
-        <div class="bg-primary/20 w-full rounded-t-sm h-[50%]"></div>
-        <div class="bg-primary/40 w-full rounded-t-sm h-[80%]"></div>
-        <div class="bg-primary/60 w-full rounded-t-sm h-[100%]"></div>
-        <div class="bg-primary/20 w-full rounded-t-sm h-[70%]"></div>
-        <div class="bg-primary/20 w-full rounded-t-sm h-[45%]"></div>
-      </div>
-    </div>
-
-    <!-- Metric: Value Score -->
-    <div class="md:col-span-2 glass-card rounded-xl p-8 flex flex-col items-center justify-center relative">
-      <div class="relative w-32 h-32 flex items-center justify-center">
-        <svg class="w-full h-full -rotate-90">
-          <circle cx="64" cy="64" fill="transparent" r="58" stroke="rgba(255,255,255,0.05)" stroke-width="8"/>
-          <circle cx="64" cy="64" fill="transparent" r="58" stroke="url(#grad-score)" stroke-dasharray="364" stroke-dashoffset="12" stroke-linecap="round" stroke-width="8"/>
-          <defs><linearGradient id="grad-score" x1="0%" x2="100%" y1="0%" y2="0%"><stop offset="0%" style="stop-color:#b79fff"/><stop offset="100%" style="stop-color:#62fae3"/></linearGradient></defs>
-        </svg>
-        <div class="absolute inset-0 flex flex-col items-center justify-center">
-          <span class="text-2xl font-headline font-bold">4-Dim</span>
-          <span class="text-[8px] text-on-surface-variant uppercase tracking-widest">Value Score</span>
+        <div class="text-center flex-1">
+          <div class="w-full bg-gradient-to-t from-tertiary/20 to-tertiary/60 rounded-t-xl mx-auto" style="height: 62%"></div>
+          <p class="text-[10px] text-on-surface-variant mt-2">Cost Eff.</p>
+          <p class="text-xs font-bold text-tertiary">0.25</p>
         </div>
-      </div>
-      <div class="mt-4 text-center">
-        <p class="text-xs text-on-surface-variant font-medium">Semantic + Quality + Cost + Reliability</p>
-      </div>
-    </div>
-
-    <!-- Scoring Weights Chart -->
-    <div class="md:col-span-4 lg:col-span-4 glass-card rounded-xl p-8">
-      <div class="flex justify-between items-center mb-8">
-        <div>
-          <h2 class="text-xl font-headline font-bold">Ranking Weights</h2>
-          <p class="text-xs text-on-surface-variant">How value_score is computed for each recommendation</p>
-        </div>
-        <div class="flex gap-2">
-          <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full text-[10px] text-on-surface-variant border border-outline-variant/10">
-            <span class="w-1.5 h-1.5 rounded-full bg-primary"></span> Semantic
-          </div>
-          <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full text-[10px] text-on-surface-variant border border-outline-variant/10">
-            <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span> Quality
-          </div>
-          <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container rounded-full text-[10px] text-on-surface-variant border border-outline-variant/10">
-            <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span> Cost
-          </div>
-        </div>
-      </div>
-      <div class="h-64 w-full relative">
-        <div class="absolute inset-0 flex items-end justify-around px-2">
-          <div class="text-center">
-            <div class="w-16 bg-gradient-to-t from-primary/20 to-primary/60 rounded-t-xl mx-auto" style="height: 75%"></div>
-            <p class="text-[10px] text-on-surface-variant mt-2">Semantic</p>
-            <p class="text-xs font-bold text-primary">0.30</p>
-          </div>
-          <div class="text-center">
-            <div class="w-16 bg-gradient-to-t from-secondary/20 to-secondary/60 rounded-t-xl mx-auto" style="height: 62%"></div>
-            <p class="text-[10px] text-on-surface-variant mt-2">Quality</p>
-            <p class="text-xs font-bold text-secondary">0.25</p>
-          </div>
-          <div class="text-center">
-            <div class="w-16 bg-gradient-to-t from-tertiary/20 to-tertiary/60 rounded-t-xl mx-auto" style="height: 62%"></div>
-            <p class="text-[10px] text-on-surface-variant mt-2">Cost Eff.</p>
-            <p class="text-xs font-bold text-tertiary">0.25</p>
-          </div>
-          <div class="text-center">
-            <div class="w-16 bg-gradient-to-t from-primary/20 to-primary/40 rounded-t-xl mx-auto" style="height: 50%"></div>
-            <p class="text-[10px] text-on-surface-variant mt-2">Reliability</p>
-            <p class="text-xs font-bold text-primary-dim">0.20</p>
-          </div>
+        <div class="text-center flex-1">
+          <div class="w-full bg-gradient-to-t from-primary/20 to-primary/40 rounded-t-xl mx-auto" style="height: 50%"></div>
+          <p class="text-[10px] text-on-surface-variant mt-2">Reliability</p>
+          <p class="text-xs font-bold text-primary-dim">0.20</p>
         </div>
       </div>
     </div>
 
     <!-- API Endpoints -->
-    <div class="md:col-span-2 lg:col-span-2 glass-card rounded-xl p-8 flex flex-col">
+    <div class="glass-card rounded-xl p-8 flex flex-col">
       <h2 class="text-xl font-headline font-bold mb-6">API Endpoints</h2>
-      <div class="space-y-6 flex-1">
+      <div class="space-y-5 flex-1">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-surface-variant flex items-center justify-center">
-              <span class="material-symbols-outlined text-secondary">search</span>
+            <div class="w-9 h-9 rounded-lg bg-surface-variant flex items-center justify-center">
+              <span class="material-symbols-outlined text-secondary text-lg">search</span>
             </div>
             <div>
               <p class="text-sm font-bold">POST /discover</p>
-              <p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Service Discovery</p>
+              <p class="text-[10px] text-on-surface-variant">Service Discovery</p>
             </div>
           </div>
-          <div class="text-right">
-            <p class="text-xs font-bold text-secondary">Live</p>
-          </div>
+          <div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(98,250,227,0.5)]" id="ep-discover"></div>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-surface-variant flex items-center justify-center">
-              <span class="material-symbols-outlined text-primary">send</span>
+            <div class="w-9 h-9 rounded-lg bg-surface-variant flex items-center justify-center">
+              <span class="material-symbols-outlined text-primary text-lg">send</span>
             </div>
             <div>
               <p class="text-sm font-bold">POST /report</p>
-              <p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Feedback Loop</p>
+              <p class="text-[10px] text-on-surface-variant">Feedback Loop</p>
             </div>
           </div>
-          <div class="text-right">
-            <p class="text-xs font-bold text-secondary">Live</p>
-          </div>
+          <div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(98,250,227,0.5)]" id="ep-report"></div>
         </div>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-surface-variant flex items-center justify-center">
-              <span class="material-symbols-outlined text-tertiary">hub</span>
+            <div class="w-9 h-9 rounded-lg bg-surface-variant flex items-center justify-center">
+              <span class="material-symbols-outlined text-tertiary text-lg">hub</span>
             </div>
             <div>
               <p class="text-sm font-bold">MCP /mcp</p>
-              <p class="text-[10px] text-on-surface-variant uppercase tracking-widest">Streamable HTTP</p>
+              <p class="text-[10px] text-on-surface-variant">Streamable HTTP</p>
             </div>
           </div>
-          <div class="text-right">
-            <p class="text-xs font-bold text-secondary">Live</p>
+          <div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(98,250,227,0.5)]" id="ep-mcp"></div>
+        </div>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-surface-variant flex items-center justify-center">
+              <span class="material-symbols-outlined text-on-surface-variant text-lg">list_alt</span>
+            </div>
+            <div>
+              <p class="text-sm font-bold">GET /api/services</p>
+              <p class="text-[10px] text-on-surface-variant">Service Listing</p>
+            </div>
           </div>
+          <div class="w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(98,250,227,0.5)]" id="ep-services"></div>
         </div>
       </div>
-      <a href="/explorer" class="mt-8 text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
+      <a href="/explorer" class="mt-6 text-xs font-bold text-secondary uppercase tracking-widest flex items-center gap-2 hover:translate-x-1 transition-transform">
         Try Explorer <span class="material-symbols-outlined text-sm">arrow_forward</span>
       </a>
     </div>
+  </div>
 
-    <!-- Architecture Overview -->
-    <div class="md:col-span-6 glass-card rounded-xl overflow-hidden">
-      <div class="p-8 border-b border-outline-variant/10 flex justify-between items-center">
-        <div>
-          <h2 class="text-2xl font-headline font-extrabold tracking-tight">System Architecture</h2>
-          <p class="text-sm text-on-surface-variant">How Disvr processes a discovery request</p>
+  <!-- Bottom Row -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <!-- Top Services -->
+    <div class="glass-card rounded-xl overflow-hidden">
+      <div class="px-8 py-5 border-b border-white/5">
+        <h2 class="text-xl font-headline font-bold">Top Services</h2>
+        <p class="text-xs text-on-surface-variant">Ranked by usage volume and reputation</p>
+      </div>
+      <div id="top-services" class="divide-y divide-white/5">
+        <div class="px-8 py-8 text-center text-on-surface-variant text-sm">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Recent Feedback -->
+    <div class="glass-card rounded-xl overflow-hidden">
+      <div class="px-8 py-5 border-b border-white/5">
+        <h2 class="text-xl font-headline font-bold">Recent Feedback</h2>
+        <p class="text-xs text-on-surface-variant">Latest agent call reports</p>
+      </div>
+      <div id="recent-reports" class="divide-y divide-white/5">
+        <div class="px-8 py-8 text-center text-on-surface-variant text-sm">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Architecture -->
+  <div class="glass-card rounded-xl overflow-hidden">
+    <div class="p-8 border-b border-outline-variant/10">
+      <h2 class="text-2xl font-headline font-extrabold tracking-tight">System Architecture</h2>
+      <p class="text-sm text-on-surface-variant">How Disvr processes a discovery request</p>
+    </div>
+    <div class="p-8">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center text-center">
+        <div class="glass-card p-6 rounded-xl">
+          <span class="material-symbols-outlined text-3xl text-secondary mb-2">input</span>
+          <p class="text-sm font-bold">Agent Query</p>
+          <p class="text-[10px] text-on-surface-variant mt-1">"I need X"</p>
+        </div>
+        <div class="hidden md:flex items-center justify-center">
+          <span class="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
+        </div>
+        <div class="glass-card p-6 rounded-xl">
+          <span class="material-symbols-outlined text-3xl text-primary mb-2">memory</span>
+          <p class="text-sm font-bold">Embed + Search</p>
+          <p class="text-[10px] text-on-surface-variant mt-1">OpenAI + Vectorize</p>
+        </div>
+        <div class="hidden md:flex items-center justify-center">
+          <span class="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
+        </div>
+        <div class="glass-card p-6 rounded-xl">
+          <span class="material-symbols-outlined text-3xl text-tertiary mb-2">leaderboard</span>
+          <p class="text-sm font-bold">4-Dim Rank</p>
+          <p class="text-[10px] text-on-surface-variant mt-1">Top 3 by value</p>
         </div>
       </div>
-      <div class="p-8">
-        <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-center text-center">
-          <div class="glass-card p-6 rounded-xl">
-            <span class="material-symbols-outlined text-3xl text-secondary mb-2">input</span>
-            <p class="text-sm font-bold">Agent Query</p>
-            <p class="text-[10px] text-on-surface-variant mt-1">"I need X"</p>
-          </div>
-          <div class="hidden md:flex items-center justify-center">
-            <span class="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
-          </div>
-          <div class="glass-card p-6 rounded-xl">
-            <span class="material-symbols-outlined text-3xl text-primary mb-2">memory</span>
-            <p class="text-sm font-bold">Embed + Search</p>
-            <p class="text-[10px] text-on-surface-variant mt-1">OpenAI + Vectorize</p>
-          </div>
-          <div class="hidden md:flex items-center justify-center">
-            <span class="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
-          </div>
-          <div class="glass-card p-6 rounded-xl">
-            <span class="material-symbols-outlined text-3xl text-tertiary mb-2">leaderboard</span>
-            <p class="text-sm font-bold">4-Dim Rank</p>
-            <p class="text-[10px] text-on-surface-variant mt-1">Top 3 by value</p>
-          </div>
-        </div>
-        <div class="flex justify-center mt-6">
-          <div class="glass-card px-8 py-4 rounded-xl flex items-center gap-4">
-            <span class="material-symbols-outlined text-secondary">autorenew</span>
-            <div class="text-left">
-              <p class="text-sm font-bold">Closed-Loop Feedback</p>
-              <p class="text-[10px] text-on-surface-variant">POST /report &rarr; refreshServiceStats &rarr; better rankings</p>
-            </div>
+      <div class="flex justify-center mt-6">
+        <div class="glass-card px-8 py-4 rounded-xl flex items-center gap-4">
+          <span class="material-symbols-outlined text-secondary">autorenew</span>
+          <div class="text-left">
+            <p class="text-sm font-bold">Closed-Loop Feedback</p>
+            <p class="text-[10px] text-on-surface-variant">POST /report &rarr; refreshServiceStats &rarr; better rankings</p>
           </div>
         </div>
       </div>
@@ -281,8 +291,98 @@ tailwind.config = {
 </footer>
 
 <script>
-fetch('https://api.disvr.top/health').then(r => r.json()).then(d => {
-  document.getElementById('metric-services').textContent = d.services_indexed || '--';
-}).catch(() => {});
+var API = 'https://api.disvr.top';
+
+function renderPlatformBar(name, count, total, color) {
+  var pct = total > 0 ? Math.round(count / total * 100) : 0;
+  return '<div>' +
+    '<div class="flex justify-between items-center mb-1">' +
+      '<span class="text-sm font-bold text-on-surface">' + name + '</span>' +
+      '<span class="text-xs text-on-surface-variant">' + count + ' (' + pct + '%)</span>' +
+    '</div>' +
+    '<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">' +
+      '<div class="h-full rounded-full ' + color + '" style="width: ' + pct + '%"></div>' +
+    '</div>' +
+  '</div>';
+}
+
+async function loadStats() {
+  try {
+    var res = await fetch(API + '/api/stats');
+    var s = await res.json();
+
+    // KPIs
+    document.getElementById('kpi-services').textContent = s.total_services;
+    document.getElementById('kpi-reports').textContent = s.total_reports;
+    document.getElementById('kpi-success').textContent = s.avg_success_rate !== null ? (s.avg_success_rate * 100).toFixed(1) + '%' : 'N/A';
+    document.getElementById('kpi-latency').textContent = s.avg_latency_ms !== null ? Math.round(s.avg_latency_ms) + 'ms' : 'N/A';
+
+    // Platform distribution
+    var colors = ['bg-primary', 'bg-secondary', 'bg-tertiary', 'bg-primary-dim', 'bg-secondary-dim'];
+    var platformHtml = '';
+    (s.platforms || []).forEach(function(p, i) {
+      platformHtml += renderPlatformBar(p.platform, p.count, s.total_services, colors[i % colors.length]);
+    });
+    document.getElementById('platform-chart').innerHTML = platformHtml || '<div class="text-sm text-on-surface-variant">No platform data yet</div>';
+
+    // Top services
+    var topHtml = '';
+    (s.top_services || []).forEach(function(t, i) {
+      var rep = t.reputation_score !== null ? t.reputation_score.toFixed(1) : '--';
+      topHtml += '<div class="px-8 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">' +
+        '<div class="flex items-center gap-4">' +
+          '<span class="text-sm font-bold text-on-surface-variant w-6">#' + (i + 1) + '</span>' +
+          '<div>' +
+            '<p class="text-sm font-bold text-on-surface">' + t.name + '</p>' +
+            '<p class="text-[10px] text-on-surface-variant">' + t.total_calls + ' calls</p>' +
+          '</div>' +
+        '</div>' +
+        '<span class="text-sm font-mono font-bold text-secondary">' + rep + '</span>' +
+      '</div>';
+    });
+    document.getElementById('top-services').innerHTML = topHtml || '<div class="px-8 py-8 text-center text-on-surface-variant text-sm">No usage data yet. Services appear here after agents report call results.</div>';
+
+    // Recent reports
+    var recentHtml = '';
+    (s.recent_reports || []).forEach(function(r) {
+      var icon = r.success ? 'check_circle' : 'cancel';
+      var iconColor = r.success ? 'text-secondary' : 'text-error';
+      var time = r.created_at ? new Date(r.created_at).toLocaleString() : '--';
+      recentHtml += '<div class="px-8 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">' +
+        '<div class="flex items-center gap-3">' +
+          '<span class="material-symbols-outlined ' + iconColor + '">' + icon + '</span>' +
+          '<div>' +
+            '<p class="text-sm font-bold text-on-surface">' + r.service_id + '</p>' +
+            '<p class="text-[10px] text-on-surface-variant">' + time + '</p>' +
+          '</div>' +
+        '</div>' +
+        '<span class="text-xs font-bold ' + (r.success ? 'text-secondary' : 'text-error') + '">' + (r.success ? 'Success' : 'Failed') + '</span>' +
+      '</div>';
+    });
+    document.getElementById('recent-reports').innerHTML = recentHtml || '<div class="px-8 py-8 text-center text-on-surface-variant text-sm">No feedback reports yet. Reports appear here after agents use POST /report.</div>';
+
+    // Check endpoint health
+    checkEndpoints();
+  } catch (e) {
+    document.getElementById('kpi-services').textContent = 'Error';
+  }
+}
+
+async function checkEndpoints() {
+  try {
+    var res = await fetch(API + '/health');
+    if (res.ok) {
+      ['ep-discover', 'ep-report', 'ep-mcp', 'ep-services'].forEach(function(id) {
+        document.getElementById(id).className = 'w-2 h-2 rounded-full bg-secondary shadow-[0_0_8px_rgba(98,250,227,0.5)]';
+      });
+    }
+  } catch (e) {
+    ['ep-discover', 'ep-report', 'ep-mcp', 'ep-services'].forEach(function(id) {
+      document.getElementById(id).className = 'w-2 h-2 rounded-full bg-error shadow-[0_0_8px_rgba(255,110,132,0.5)]';
+    });
+  }
+}
+
+loadStats();
 </script>
 </body></html>`;

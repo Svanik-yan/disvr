@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
-import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport } from "./db.js";
+import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats } from "./db.js";
 import { crawlSmithery, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
@@ -135,6 +135,23 @@ app.post("/report", async (c) => {
 
   await insertCallReport(c.env.DB, body, keyHash);
   return c.json({ status: "ok", message: "Call report recorded. Thank you for improving recommendations." });
+});
+
+// ─── Public API: Service Listing & Stats ───
+
+app.get("/api/services", async (c) => {
+  const page = Math.max(1, parseInt(c.req.query("page") || "1"));
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit") || "20")));
+  const search = c.req.query("search") || undefined;
+  const platform = c.req.query("platform") || undefined;
+  const sort = c.req.query("sort") || undefined;
+  const result = await getServicesPaginated(c.env.DB, { page, limit, search, platform, sort });
+  return c.json(result);
+});
+
+app.get("/api/stats", async (c) => {
+  const stats = await getSystemStats(c.env.DB);
+  return c.json(stats);
 });
 
 // Admin: trigger crawl manually

@@ -69,9 +69,11 @@ tailwind.config = {
 <!-- Nav -->
 <nav class="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-slate-950/60 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
   <a href="/" class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent font-headline">Disvr</a>
-  <div class="hidden md:flex items-center gap-8">
-    <a class="text-slate-300 hover:text-slate-100 transition-colors" href="#why">Why Disvr</a>
-    <a class="text-slate-300 hover:text-slate-100 transition-colors" href="#integration">Integration</a>
+  <div class="hidden md:flex items-center gap-6">
+    <a class="text-teal-400 border-b-2 border-teal-400 pb-1" href="/">Home</a>
+    <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/registry">Registry</a>
+    <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/explorer">Explorer</a>
+    <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/analytics">Analytics</a>
     <a class="text-slate-300 hover:text-slate-100 transition-colors" href="https://github.com/Svanik-yan/disvr" target="_blank">GitHub</a>
   </div>
   <div class="flex items-center gap-4">
