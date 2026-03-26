@@ -6,11 +6,25 @@ import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCa
 import { crawlSmithery, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
+import { landingPageHtml } from "./landing.js";
+import { registryPageHtml } from "./pages/registry.js";
+import { explorerPageHtml } from "./pages/explorer.js";
+import { analyticsPageHtml } from "./pages/analytics.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 // CORS
 app.use("*", cors());
+
+// Landing page
+app.get("/", (c) => {
+  return c.html(landingPageHtml);
+});
+
+// Pages
+app.get("/registry", (c) => c.html(registryPageHtml));
+app.get("/explorer", (c) => c.html(explorerPageHtml));
+app.get("/analytics", (c) => c.html(analyticsPageHtml));
 
 // Health check
 app.get("/health", async (c) => {
