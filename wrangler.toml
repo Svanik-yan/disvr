@@ -2,11 +2,18 @@ name = "disvr"
 main = "src/index.ts"
 compatibility_date = "2026-03-02"
 compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+# Custom domains
+routes = [
+  { pattern = "www.disvr.top", custom_domain = true },
+  { pattern = "api.disvr.top", custom_domain = true },
+]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "disvr-db"
-database_id = "placeholder-will-be-set-after-d1-create"
+database_id = "da8fa0ee-8b1f-49fe-90f1-f7ef85731744"
 
 [[vectorize]]
 binding = "VECTORIZE"

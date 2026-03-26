@@ -2,7 +2,7 @@
   "mcpServers": {
     "disvr": {
       "type": "url",
-      "url": "https://disvr.yanchen330.workers.dev/mcp"
+      "url": "https://api.disvr.top/mcp"
     }
   }
 }
