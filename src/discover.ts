@@ -1,0 +1,384 @@
+import OpenAI from "openai";
+import type {
+  Env, Service, DiscoverRequest, Recommendation,
+  DiscoverResponse, SpendSummary,
+} from "./types.js";
+import { getServicesByIds, searchFTS } from "./db.js";
+
+const EMBEDDING_MODEL = "text-embedding-3-small";
+const EMBEDDING_DIMENSIONS = 1536;
+const TOP_K_CANDIDATES = 50;
+const TOP_N_RESULTS = 3;
+
+// ─── Scoring Weights ───
+// Core thesis: not just "find matching tools" but "find the best value for money"
+//
+//   value_score = f(semantic_match, quality, cost_efficiency, reliability)
+//
+// This is what separates us from directories (pure match) and routers (pure cost).
+
+const WEIGHT_SEMANTIC = 0.30;      // Does it do what you need?
+const WEIGHT_QUALITY = 0.25;       // How well does it perform?
+const WEIGHT_COST_EFFICIENCY = 0.25; // What's the cost per successful outcome?
+const WEIGHT_RELIABILITY = 0.20;   // Can you count on it?
+
+export async function searchServices(
+  env: Env,
+  request: DiscoverRequest
+): Promise<DiscoverResponse> {
+  const queryId = crypto.randomUUID();
+
+  // Step 1: Get embedding
+  const embedding = await embedQuery(env, request.need);
+
+  let candidates: Array<{ service: Service; similarity: number }>;
+
+  if (embedding) {
+    candidates = await vectorSearch(env, embedding);
+  } else {
+    const ftsResults = await searchFTS(env.DB, request.need, TOP_K_CANDIDATES);
+    candidates = ftsResults.map((s, i) => ({
+      service: s,
+      similarity: 1 - i * 0.01,
+    }));
+  }
+
+  if (candidates.length === 0) {
+    return { recommendations: [], query_id: queryId, spend_summary: null };
+  }
+
+  // Step 2: Apply constraints
+  const filtered = applyConstraints(candidates, request);
+
+  // Step 3: Rank by value (not just relevance)
+  const ranked = rankServices(filtered);
+  const topN = ranked.slice(0, TOP_N_RESULTS);
+
+  // Step 4: Build recommendations with spend intelligence
+  const recommendations: Recommendation[] = topN.map((item) =>
+    buildRecommendation(item.service, item.similarity, item.valueScore, request)
+  );
+
+  // Step 5: Spend summary
+  const spendSummary = buildSpendSummary(ranked, request);
+
+  return { recommendations, query_id: queryId, spend_summary: spendSummary };
+}
+
+// ─── Embedding ───
+
+export async function embedQuery(
+  env: Env,
+  text: string
+): Promise<number[] | null> {
+  const hash = await hashText(text);
+  const cached = await env.DB.prepare(
+    "SELECT embedding FROM query_cache WHERE query_hash = ?1"
+  )
+    .bind(hash)
+    .first<{ embedding: ArrayBuffer }>();
+
+  if (cached?.embedding) {
+    return Array.from(new Float32Array(cached.embedding));
+  }
+
+  try {
+    const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+    const response = await client.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: text,
+      dimensions: EMBEDDING_DIMENSIONS,
+    });
+
+    const vector = response.data[0].embedding;
+
+    const buffer = new Float32Array(vector).buffer;
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO query_cache (query_hash, embedding, created_at) VALUES (?1, ?2, datetime('now'))"
+    )
+      .bind(hash, buffer)
+      .run();
+
+    return vector;
+  } catch (error) {
+    console.error("Embedding failed, falling back to FTS:", error);
+    return null;
+  }
+}
+
+// ─── Vector Search ───
+
+async function vectorSearch(
+  env: Env,
+  embedding: number[]
+): Promise<Array<{ service: Service; similarity: number }>> {
+  const vectorResults = await env.VECTORIZE.query(embedding, {
+    topK: TOP_K_CANDIDATES,
+    returnValues: false,
+    returnMetadata: "none",
+  });
+
+  if (!vectorResults.matches || vectorResults.matches.length === 0) {
+    return [];
+  }
+
+  const ids = vectorResults.matches.map((m) => m.id);
+  const services = await getServicesByIds(env.DB, ids);
+
+  const scoreMap = new Map<string, number>();
+  for (const match of vectorResults.matches) {
+    scoreMap.set(match.id, match.score ?? 0);
+  }
+
+  return services.map((s) => ({
+    service: s,
+    similarity: scoreMap.get(s.id) ?? 0,
+  }));
+}
+
+// ─── Constraint Filtering ───
+
+export function applyConstraints(
+  candidates: Array<{ service: Service; similarity: number }>,
+  request: DiscoverRequest
+): Array<{ service: Service; similarity: number }> {
+  return candidates.filter(({ service }) => {
+    if (
+      request.max_price_per_call !== undefined &&
+      service.pricing.price_usd > request.max_price_per_call
+    ) {
+      return false;
+    }
+    if (
+      request.max_latency_ms !== undefined &&
+      service.latency_p95_ms !== null &&
+      service.latency_p95_ms > request.max_latency_ms
+    ) {
+      return false;
+    }
+    if (
+      request.min_reputation !== undefined &&
+      (service.reputation_score === null ||
+        service.reputation_score < request.min_reputation)
+    ) {
+      return false;
+    }
+    if (
+      request.min_success_rate !== undefined &&
+      (service.success_rate === null ||
+        service.success_rate < request.min_success_rate)
+    ) {
+      return false;
+    }
+    return true;
+  });
+}
+
+// ─── Ranking: The Core Algorithm ───
+
+interface RankedCandidate {
+  service: Service;
+  similarity: number;
+  valueScore: number;
+}
+
+export function rankServices(
+  candidates: Array<{ service: Service; similarity: number }>
+): RankedCandidate[] {
+  const scored = candidates.map((item) => {
+    const s = item.service;
+
+    // 1. Semantic relevance (0-1)
+    const semanticScore = item.similarity;
+
+    // 2. Quality score (0-1): success rate + reputation
+    const successNorm = s.success_rate ?? 0.5;
+    const reputationNorm = (s.reputation_score ?? 2.5) / 5;
+    const qualityScore = successNorm * 0.6 + reputationNorm * 0.4;
+
+    // 3. Cost efficiency (0-1): lower cost_per_success = better
+    //    For free services, perfect score. For paid, normalize against $1/call ceiling
+    const costPerSuccess = s.avg_cost_per_success ?? s.pricing.price_usd;
+    const costEfficiency = costPerSuccess <= 0
+      ? 1.0
+      : Math.max(0, 1 - costPerSuccess / 1.0);
+
+    // 4. Reliability (0-1): uptime, low retry rate, low latency
+    const uptimeNorm = s.uptime_30d ?? 0.5;
+    const retryPenalty = 1 - (s.retry_rate ?? 0);
+    const latencyNorm = s.latency_p95_ms !== null
+      ? Math.max(0, 1 - s.latency_p95_ms / 10000)
+      : 0.5;
+    const reliabilityScore = uptimeNorm * 0.4 + retryPenalty * 0.35 + latencyNorm * 0.25;
+
+    // Final value score
+    const valueScore =
+      WEIGHT_SEMANTIC * semanticScore +
+      WEIGHT_QUALITY * qualityScore +
+      WEIGHT_COST_EFFICIENCY * costEfficiency +
+      WEIGHT_RELIABILITY * reliabilityScore;
+
+    return { ...item, valueScore };
+  });
+
+  scored.sort((a, b) => b.valueScore - a.valueScore);
+  return scored;
+}
+
+// ─── Build Recommendation ───
+
+function buildRecommendation(
+  service: Service,
+  similarity: number,
+  valueScore: number,
+  request: DiscoverRequest
+): Recommendation {
+  const protocols = service.protocols;
+  const primaryProtocol = Object.keys(protocols)[0] ?? "unknown";
+  const primaryEndpoint = protocols[primaryProtocol] ?? "";
+
+  const costPerSuccess = service.avg_cost_per_success ?? service.pricing.price_usd;
+  const estimatedTasks = request.budget_usd !== undefined && costPerSuccess > 0
+    ? Math.floor(request.budget_usd / costPerSuccess)
+    : null;
+
+  return {
+    service: service.name,
+    platform: service.platform,
+    protocol: primaryProtocol,
+    endpoint: primaryEndpoint,
+    price_usd: service.pricing.price_usd,
+    reputation: service.reputation_score,
+    latency_p95_ms: service.latency_p95_ms,
+    match_confidence: round2(similarity),
+    total_calls: service.total_calls,
+    success_rate: service.success_rate,
+    cost_per_success: costPerSuccess > 0 ? round4(costPerSuccess) : null,
+    value_score: round2(valueScore),
+    retry_rate: service.retry_rate,
+    estimated_tasks_per_budget: estimatedTasks,
+    reason: generateReason(service, valueScore, similarity),
+  };
+}
+
+// ─── Spend Summary ───
+
+function buildSpendSummary(
+  ranked: RankedCandidate[],
+  request: DiscoverRequest
+): SpendSummary | null {
+  if (ranked.length === 0) return null;
+
+  const costs = ranked
+    .map((r) => r.service.avg_cost_per_success ?? r.service.pricing.price_usd)
+    .filter((c) => c > 0);
+
+  if (costs.length === 0) {
+    return {
+      recommended_cost_usd: 0,
+      cheapest_cost_usd: 0,
+      best_quality_cost_usd: 0,
+      budget_estimate: null,
+    };
+  }
+
+  const recommendedCost = costs[0];
+  const cheapestCost = Math.min(...costs);
+
+  // Best quality = highest value_score that has a cost
+  const bestQualityItem = ranked.find(
+    (r) => (r.service.avg_cost_per_success ?? r.service.pricing.price_usd) > 0
+  );
+  const bestQualityCost = bestQualityItem
+    ? bestQualityItem.service.avg_cost_per_success ?? bestQualityItem.service.pricing.price_usd
+    : cheapestCost;
+
+  const budgetEstimate = request.budget_usd !== undefined && recommendedCost > 0
+    ? { budget_usd: request.budget_usd, estimated_calls: Math.floor(request.budget_usd / recommendedCost) }
+    : null;
+
+  return {
+    recommended_cost_usd: round4(recommendedCost),
+    cheapest_cost_usd: round4(cheapestCost),
+    best_quality_cost_usd: round4(bestQualityCost),
+    budget_estimate: budgetEstimate,
+  };
+}
+
+// ─── Reason Generation ───
+
+export function generateReason(
+  service: Service,
+  valueScore: number,
+  similarity: number
+): string {
+  const parts: string[] = [];
+
+  // Match quality
+  if (similarity > 0.85) {
+    parts.push("Highly relevant");
+  } else if (similarity > 0.7) {
+    parts.push("Good match");
+  } else {
+    parts.push("Partial match");
+  }
+
+  // Spend efficiency
+  if (service.avg_cost_per_success !== null) {
+    if (service.avg_cost_per_success === 0) {
+      parts.push("free");
+    } else {
+      parts.push(`$${service.avg_cost_per_success.toFixed(4)}/success`);
+    }
+  } else if (service.pricing.price_usd === 0) {
+    parts.push("free");
+  } else {
+    parts.push(`$${service.pricing.price_usd}/call`);
+  }
+
+  // Quality signals
+  if (service.success_rate !== null && service.success_rate > 0.95) {
+    parts.push(`${(service.success_rate * 100).toFixed(1)}% success`);
+  }
+
+  if (service.retry_rate !== null && service.retry_rate < 0.05) {
+    parts.push("rarely needs retry");
+  } else if (service.retry_rate !== null && service.retry_rate > 0.2) {
+    parts.push(`${(service.retry_rate * 100).toFixed(0)}% retry rate`);
+  }
+
+  // Volume
+  if (service.total_calls > 10000) {
+    parts.push(`${(service.total_calls / 1000).toFixed(0)}k+ calls`);
+  } else if (service.total_calls > 0) {
+    parts.push(`${service.total_calls} calls`);
+  }
+
+  // Value verdict
+  if (valueScore > 0.8) {
+    parts.push("best value");
+  } else if (valueScore > 0.6) {
+    parts.push("good value");
+  }
+
+  return parts.join(", ");
+}
+
+// ─── Helpers ───
+
+async function hashText(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text.toLowerCase().trim());
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function round4(n: number): number {
+  return Math.round(n * 10000) / 10000;
+}

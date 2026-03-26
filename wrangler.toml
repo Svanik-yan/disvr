@@ -1,0 +1,30 @@
+name = "disvr"
+main = "src/index.ts"
+compatibility_date = "2026-03-02"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "disvr-db"
+database_id = "placeholder-will-be-set-after-d1-create"
+
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "disvr-mcp-index"
+
+[vars]
+ENVIRONMENT = "production"
+
+# Hourly crawl trigger
+[triggers]
+crons = ["0 * * * *"]
+
+# MCP Server via Durable Objects
+[durable_objects]
+bindings = [
+  { name = "MCP_AGENT", class_name = "DisvrMcpAgent" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DisvrMcpAgent"]
