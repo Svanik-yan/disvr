@@ -35,7 +35,17 @@ export async function searchServices(
 
   if (embedding) {
     candidates = await vectorSearch(env, embedding);
+    // If vector search returns nothing (index may be syncing), fall back to FTS
+    if (candidates.length === 0) {
+      console.log("Vector search returned 0 results, falling back to FTS");
+      const ftsResults = await searchFTS(env.DB, request.need, TOP_K_CANDIDATES);
+      candidates = ftsResults.map((s, i) => ({
+        service: s,
+        similarity: 1 - i * 0.01,
+      }));
+    }
   } else {
+    console.log("Embedding failed, using FTS fallback");
     const ftsResults = await searchFTS(env.DB, request.need, TOP_K_CANDIDATES);
     candidates = ftsResults.map((s, i) => ({
       service: s,

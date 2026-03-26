@@ -3,6 +3,13 @@ import { rowToService } from "./types.js";
 
 // ─── Service CRUD ───
 
+export async function getAllServices(db: D1Database): Promise<Service[]> {
+  const result = await db
+    .prepare("SELECT * FROM services")
+    .all<ServiceRow>();
+  return (result.results ?? []).map(rowToService);
+}
+
 export async function upsertService(
   db: D1Database,
   service: Service
@@ -83,6 +90,15 @@ export async function searchFTS(
   const sanitized = query.replace(/['"]/g, "").trim();
   if (sanitized.length === 0) return [];
 
+  // Split into words, add wildcard prefix matching, join with OR
+  const terms = sanitized
+    .split(/\s+/)
+    .filter((t) => t.length >= 2)
+    .map((t) => `"${t}"*`)
+    .join(" OR ");
+
+  if (terms.length === 0) return [];
+
   const result = await db
     .prepare(
       `SELECT s.* FROM services s
@@ -91,7 +107,7 @@ export async function searchFTS(
        ORDER BY rank
        LIMIT ?2`
     )
-    .bind(sanitized, limit)
+    .bind(terms, limit)
     .all<ServiceRow>();
 
   return (result.results ?? []).map(rowToService);

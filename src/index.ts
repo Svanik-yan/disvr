@@ -3,7 +3,8 @@ import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
 import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport } from "./db.js";
-import { crawlSmithery } from "./crawl.js";
+import { crawlSmithery, embedAndIndex } from "./crawl.js";
+import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -126,6 +127,16 @@ app.post("/report", async (c) => {
 app.post("/admin/crawl", async (c) => {
   const count = await crawlSmithery(c.env);
   return c.json({ status: "ok", services_crawled: count });
+});
+
+// Admin: reindex existing services into Vectorize
+app.post("/admin/reindex", async (c) => {
+  const services = await getAllServices(c.env.DB);
+  if (services.length === 0) {
+    return c.json({ status: "ok", message: "No services to index." });
+  }
+  await embedAndIndex(c.env, services);
+  return c.json({ status: "ok", services_indexed: services.length });
 });
 
 // MCP Server endpoint
