@@ -1,7 +1,7 @@
 <h1 align="center">🔍 Disvr</h1>
 
 <p align="center">
-  <strong>AI Agent 的智能消费决策引擎 — "Agent 版大众点评"</strong>
+  <strong>Spend Intelligence for AI Agents — the "Yelp for the Agent Economy"</strong>
 </p>
 
 <p align="center">
@@ -11,57 +11,57 @@
 </p>
 
 <p align="center">
-  <a href="#为什么需要-disvr">Why Disvr</a> · <a href="#快速上手">Quick Start</a> · <a href="#api-reference">API</a> · <a href="#系统架构">Architecture</a> · <a href="https://www.disvr.top">Live Demo</a>
+  <a href="#why-disvr">Why Disvr</a> · <a href="#quick-start">Quick Start</a> · <a href="#api-reference">API</a> · <a href="#architecture">Architecture</a> · <a href="https://www.disvr.top/explorer">Live Demo</a> · <a href="docs/README_zh.md">中文文档</a>
 </p>
 
 ---
 
-## 为什么需要 Disvr？
+## Why Disvr?
 
-AI Agent 生态正在爆发。支付协议（Stripe MPP、OpenAI ACP、x402）解决了**怎么付**，目录（Smithery、Composio）解决了**有什么**。
+The AI Agent ecosystem is exploding. Payment protocols (Stripe MPP, OpenAI ACP, x402) solve **how to pay**. Directories (Smithery, Composio) solve **what exists**.
 
-但没人解决最关键的问题：**该用哪个？值不值得用？**
+But nobody solves the most critical question: **which tool is actually worth using?**
 
-> 🤖 "帮我翻译一份中文法律合同到泰文" → Smithery 上有 50 个翻译服务，**用哪个性价比最高？**
+> 🤖 "Translate a Chinese legal contract to Thai" → 50 translation services on Smithery. **Which one has the best cost/quality ratio?**
 >
-> 🤖 "帮我抓取电商网站的价格" → 有 30 个爬虫工具，**哪个成功率最高、延迟最低？**
+> 🤖 "Scrape product prices from e-commerce sites" → 30 scraping tools. **Which one has the highest success rate and lowest latency?**
 >
-> 🤖 "帮我生成一张产品图" → 有 20 个图片生成服务，**哪个最便宜且质量够用？**
+> 🤖 "Generate a product image" → 20 image generation services. **Which one is cheapest while still being good enough?**
 
-Agent 现在只能盲选。选错了就是浪费钱、浪费时间、任务失败。
+Right now, agents pick blindly. Wrong picks mean wasted money, wasted time, and failed tasks.
 
-**Disvr 解决这个问题。**
+**Disvr fixes this.**
 
-不是返回一个列表，而是返回一个 **排名推荐** — 基于 4 维价值评分：
+Instead of returning a list, Disvr returns a **ranked recommendation** — based on a 4-dimensional value score:
 
-| 维度 | 权重 | 衡量什么 |
-|------|------|---------|
-| 🎯 语义匹配 | 0.30 | 服务描述与需求的匹配度 |
-| ⭐ 质量评分 | 0.25 | 历史成功率、用户评价 |
-| 💰 成本效率 | 0.25 | 单次调用成本、性价比 |
-| 🔒 可靠性 | 0.20 | 延迟、重试率、可用性 |
+| Dimension | Weight | What it measures |
+|-----------|--------|-----------------|
+| 🎯 Semantic Match | 0.30 | How well the service matches the need |
+| ⭐ Quality | 0.25 | Historical success rate, reputation |
+| 💰 Cost Efficiency | 0.25 | Cost per call, value for money |
+| 🔒 Reliability | 0.20 | Latency, retry rate, uptime |
 
-**你的 Agent 不再猜，而是选最值得用的。**
+**Your agent stops guessing and starts choosing the best tool for the job.**
 
 ---
 
-## ✅ 在你用之前
+## ✅ Before You Start
 
 | | |
 |---|---|
-| 💰 **免费使用** | 免费层 1000 次/天查询，无需信用卡 |
-| 🔌 **MCP 原生** | 一行配置接入 Claude Code、Cursor 等任何 MCP 客户端 |
-| 🔄 **闭环反馈** | Agent 上报调用结果 → 评分越用越准 |
-| ☁️ **全球边缘** | 部署在 Cloudflare Workers，全球低延迟 |
-| 📡 **实时数据** | 每小时从 Smithery 爬取最新服务数据 |
+| 💰 **Free to use** | Free tier: 1,000 queries/day, no credit card required |
+| 🔌 **MCP Native** | One-line config for Claude Code, Cursor, or any MCP client |
+| 🔄 **Closed-Loop Feedback** | Agents report call results → rankings get smarter over time |
+| ☁️ **Global Edge** | Deployed on Cloudflare Workers, low latency worldwide |
+| 📡 **Real-time Data** | Hourly crawls from Smithery keep service data fresh |
 
 ---
 
-## 快速上手
+## Quick Start
 
-### 方式一：MCP Server（推荐）
+### Option 1: MCP Server (Recommended)
 
-在你的 `.mcp.json` 中添加一行：
+Add one line to your `.mcp.json`:
 
 ```json
 {
@@ -74,15 +74,15 @@ Agent 现在只能盲选。选错了就是浪费钱、浪费时间、任务失�
 }
 ```
 
-重启 Claude Code / Cursor，你的 Agent 就获得了 `discover_services` 工具。
+Restart Claude Code / Cursor — your agent now has the `discover_services` tool.
 
-试试对 Agent 说：
+Try telling your agent:
 
-- **"帮我找一个翻译中文法律文件到泰文的工具"**
-- **"推荐一个最便宜的网页抓取服务"**
-- **"哪个图片生成 API 性价比最高？"**
+- **"Find the best tool to translate Chinese legal documents to Thai"**
+- **"Recommend the cheapest web scraping service with high success rate"**
+- **"Which image generation API has the best price/quality ratio?"**
 
-### 方式二：REST API
+### Option 2: REST API
 
 ```bash
 curl -X POST https://api.disvr.top/discover \
@@ -91,7 +91,7 @@ curl -X POST https://api.disvr.top/discover \
   -d '{"need": "translate Chinese legal contract to Thai"}'
 ```
 
-返回 Top 3 推荐，按 value_score 排名：
+Returns Top 3 recommendations ranked by value_score:
 
 ```json
 {
@@ -110,22 +110,22 @@ curl -X POST https://api.disvr.top/discover \
 
 ---
 
-## 在线体验
+## Live Demo
 
-| 页面 | 链接 | 说明 |
-|------|------|------|
-| 🏠 **首页** | [www.disvr.top](https://www.disvr.top) | 产品介绍 |
-| 🔍 **Explorer** | [www.disvr.top/explorer](https://www.disvr.top/explorer) | 在线交互式查询，即时看到推荐结果 |
-| 📋 **Registry** | [www.disvr.top/registry](https://www.disvr.top/registry) | 已索引服务列表 |
-| 📊 **Analytics** | [www.disvr.top/analytics](https://www.disvr.top/analytics) | 系统架构与评分可视化 |
+| Page | Link | Description |
+|------|------|-------------|
+| 🏠 **Home** | [www.disvr.top](https://www.disvr.top) | Product overview |
+| 🔍 **Explorer** | [www.disvr.top/explorer](https://www.disvr.top/explorer) | Interactive query playground — try the API live |
+| 📋 **Registry** | [www.disvr.top/registry](https://www.disvr.top/registry) | Browse all indexed services |
+| 📊 **Analytics** | [www.disvr.top/analytics](https://www.disvr.top/analytics) | System architecture & scoring visualization |
 
 ---
 
 ## API Reference
 
-### `POST /discover` — 服务发现
+### `POST /discover` — Service Discovery
 
-请求你的 Agent 需要什么，返回 Top 3 推荐。
+Describe what your agent needs, get back Top 3 ranked recommendations.
 
 ```
 POST https://api.disvr.top/discover
@@ -140,16 +140,16 @@ Content-Type: application/json
 }
 ```
 
-| 参数 | 必填 | 说明 |
-|------|------|------|
-| `need` | ✅ | 描述你需要什么（≥5 字符） |
-| `max_price_per_call` | ❌ | 单次调用最高价格（USD） |
-| `max_latency_ms` | ❌ | 最大可接受延迟（毫秒） |
-| `min_reputation` | ❌ | 最低声誉评分（0-5） |
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `need` | ✅ | What you need (≥5 chars) |
+| `max_price_per_call` | ❌ | Max price per call (USD) |
+| `max_latency_ms` | ❌ | Max acceptable latency (ms) |
+| `min_reputation` | ❌ | Min reputation score (0-5) |
 
-### `POST /report` — 反馈上报
+### `POST /report` — Feedback Loop
 
-Agent 调用工具后上报结果，闭环改进排名。
+Report call results after using a tool — closes the feedback loop and improves rankings.
 
 ```
 POST https://api.disvr.top/report
@@ -165,7 +165,7 @@ Content-Type: application/json
 }
 ```
 
-### `GET /health` — 健康检查
+### `GET /health` — Health Check
 
 ```bash
 curl https://api.disvr.top/health
@@ -174,17 +174,17 @@ curl https://api.disvr.top/health
 
 ### MCP Tools
 
-通过 MCP Server 暴露的工具：
+Tools exposed via the MCP Server:
 
-| 工具 | 说明 |
-|------|------|
-| `discover_services` | 语义搜索 + 4维排名推荐 |
-| `list_service_count` | 当前索引的服务总数 |
-| `report_call_result` | 上报调用结果（闭环反馈） |
+| Tool | Description |
+|------|-------------|
+| `discover_services` | Semantic search + 4-dim value ranking |
+| `list_service_count` | Total number of indexed services |
+| `report_call_result` | Report call results (feedback loop) |
 
 ---
 
-## 系统架构
+## Architecture
 
 ```
 Agent Query ("I need X")
@@ -226,25 +226,25 @@ Agent Query ("I need X")
        ┌──────────────────────────────────┘
        ▼
   ┌─────────────┐
-  │ Cron Trigger │  ← 每小时从 Smithery 爬取
+  │ Cron Trigger │  ← Hourly crawl from Smithery
   │ (hourly)     │     embedAndIndex → Vectorize
   └─────────────┘
        │
   ┌────▼────────────┐
-  │ POST /report    │  ← Agent 反馈
-  │ refreshStats()  │     success_rate, latency → 排名改进
+  │ POST /report    │  ← Agent feedback
+  │ refreshStats()  │     success_rate, latency → ranking improvement
   └─────────────────┘
 ```
 
-### 技术栈
+### Tech Stack
 
-| 组件 | 技术 |
-|------|------|
+| Component | Technology |
+|-----------|-----------|
 | Runtime | Cloudflare Workers |
 | Framework | Hono |
 | Database | Cloudflare D1 (SQLite) |
 | Vector Search | CF Vectorize (1536-dim, cosine) |
-| Text Search | FTS5 (OR + prefix, 降级方案) |
+| Text Search | FTS5 (OR + prefix, fallback path) |
 | Embedding | OpenAI text-embedding-3-small |
 | MCP Server | CF Agents SDK (McpAgent + Durable Objects) |
 | Data Source | Smithery Registry (16,000+ servers) |
@@ -253,128 +253,128 @@ Agent Query ("I need X")
 
 ---
 
-## 项目结构
+## Project Structure
 
 ```
 disvr/
-├── wrangler.toml           # CF Workers 配置
-├── schema.sql              # D1 数据库 Schema
+├── wrangler.toml           # CF Workers config
+├── schema.sql              # D1 database schema
 ├── src/
-│   ├── index.ts            # Hono 入口 + REST 路由
-│   ├── discover.ts         # 核心：语义搜索 + 4维排名
-│   ├── db.ts               # D1 CRUD + 反馈统计
-│   ├── crawl.ts            # Smithery 爬虫 + embedAndIndex
+│   ├── index.ts            # Hono entry + REST routes
+│   ├── discover.ts         # Core: semantic search + 4-dim ranking
+│   ├── db.ts               # D1 CRUD + feedback stats
+│   ├── crawl.ts            # Smithery crawler + embedAndIndex
 │   ├── mcp.ts              # MCP Server (Streamable HTTP)
-│   ├── types.ts            # TypeScript 类型定义
-│   ├── landing.ts          # 落地页 HTML
+│   ├── types.ts            # TypeScript type definitions
+│   ├── landing.ts          # Landing page HTML
 │   └── pages/
-│       ├── registry.ts     # Provider Registry 页面
-│       ├── explorer.ts     # Agent Query Explorer 页面
-│       └── analytics.ts    # Analytics Dashboard 页面
+│       ├── registry.ts     # Provider Registry page
+│       ├── explorer.ts     # Agent Query Explorer page
+│       └── analytics.ts    # Analytics Dashboard page
 ├── test/
-│   ├── types.test.ts       # 类型转换测试
-│   └── discover.test.ts    # 匹配引擎测试
-└── .mcp.json               # MCP 配置示例
+│   ├── types.test.ts       # Type conversion tests
+│   └── discover.test.ts    # Matching engine tests
+└── .mcp.json               # MCP config example
 ```
 
 ---
 
-## 本地开发
+## Local Development
 
 ```bash
-# 前置要求: Node.js 22+
+# Prerequisites: Node.js 22+
 nvm use 22
 
-# 安装依赖
+# Install dependencies
 npm install
 
-# 本地开发
+# Local dev server
 npx wrangler dev
 
-# 运行测试
+# Run tests
 npx vitest run
 
-# 部署
+# Deploy
 npx wrangler deploy
 ```
 
-### 环境变量
+### Environment Variables
 
 ```bash
-# 设置 OpenAI API Key（用于 embedding）
+# Set OpenAI API Key (for embeddings)
 wrangler secret put OPENAI_API_KEY
 ```
 
-### 数据库初始化
+### Database Setup
 
 ```bash
-# 创建 D1 数据库
+# Create D1 database
 wrangler d1 create disvr-db
 
-# 执行 Schema
+# Run schema
 wrangler d1 execute disvr-db --file=./schema.sql
 
-# 创建 Vectorize 索引
+# Create Vectorize index
 wrangler vectorize create disvr-mcp-index --dimensions=1536 --metric=cosine
 ```
 
 ---
 
-## 设计理念
+## Design Philosophy
 
 ### Spend Intelligence, Not Just Search
 
-Disvr 不是目录，不是市场。它是一个 **决策层（decision layer）**。
+Disvr is not a directory. It's not a marketplace. It's a **decision layer**.
 
-传统目录返回一个列表，让你自己挑。Disvr 返回一个**推荐**，告诉你：
-- 这个工具**为什么值得用**
-- 它的**性价比如何**
-- 和其他选项**相比怎么样**
+Traditional directories return a list and let you pick. Disvr returns a **recommendation** and tells you:
+- **Why** this tool is worth using
+- **How** its cost/quality ratio compares
+- **What** makes it better than alternatives
 
-### 闭环反馈是护城河
+### Closed-Loop Feedback is the Moat
 
-每一次 Agent 调用工具后的反馈（成功/失败、延迟、成本）都会回流到排名算法。用的人越多，推荐越准。这不是静态数据库，这是一个**活的智能系统**。
+Every time an agent reports a call result (success/failure, latency, cost), it feeds back into the ranking algorithm. More usage → smarter recommendations. This isn't a static database — it's a **living intelligence system**.
 
-### 双路搜索保证召回
+### Dual-Path Search Guarantees Recall
 
-- **主路径**：OpenAI embedding → CF Vectorize 向量搜索（语义匹配）
-- **降级路径**：FTS5 全文搜索（OR + 前缀通配）
-- Embedding 失败或向量搜索无结果时自动降级，保证永远有结果返回
+- **Primary**: OpenAI embedding → CF Vectorize vector search (semantic matching)
+- **Fallback**: FTS5 full-text search (OR + prefix wildcards)
+- Automatically degrades when embedding fails or vector search returns empty — always returns results
 
 ---
 
 ## Roadmap
 
-- [x] 核心 API (discover + report + health)
+- [x] Core API (discover + report + health)
 - [x] MCP Server (Streamable HTTP)
-- [x] Smithery 爬虫 (330+ 服务)
-- [x] 落地页 + 4 个前端页面
-- [x] 自定义域名 (www.disvr.top + api.disvr.top)
-- [ ] 更多数据源 (MCP Official Registry, GitHub)
-- [ ] Agent 实际集成验证
-- [ ] 补充测试 (db.test.ts, api.test.ts, crawl.test.ts)
-- [ ] 用户注册 + API Key 管理界面
-- [ ] 成本追踪仪表板
+- [x] Smithery crawler (330+ services indexed)
+- [x] Landing page + 4 frontend pages
+- [x] Custom domains (www.disvr.top + api.disvr.top)
+- [ ] More data sources (MCP Official Registry, GitHub)
+- [ ] Agent integration verification
+- [ ] Additional tests (db.test.ts, api.test.ts, crawl.test.ts)
+- [ ] User registration + API key management UI
+- [ ] Cost tracking dashboard
 
 ---
 
-## 贡献
+## Contributing
 
-欢迎 PR 和 Issue！
+PRs and Issues are welcome!
 
-- 🐛 Bug 反馈 → [GitHub Issues](https://github.com/Svanik-yan/disvr/issues)
-- 💡 功能建议 → [GitHub Issues](https://github.com/Svanik-yan/disvr/issues)
-- 🔧 代码贡献 → Fork & PR
+- 🐛 Bug reports → [GitHub Issues](https://github.com/Svanik-yan/disvr/issues)
+- 💡 Feature requests → [GitHub Issues](https://github.com/Svanik-yan/disvr/issues)
+- 🔧 Code contributions → Fork & PR
 
 ---
 
-## 致谢
+## Acknowledgments
 
-- [Cloudflare Workers](https://workers.cloudflare.com/) — 全球边缘计算
-- [Hono](https://hono.dev/) — 轻量级 Web 框架
-- [Smithery](https://smithery.ai/) — MCP 服务注册中心
+- [Cloudflare Workers](https://workers.cloudflare.com/) — Global edge compute
+- [Hono](https://hono.dev/) — Lightweight web framework
+- [Smithery](https://smithery.ai/) — MCP service registry
 - [OpenAI](https://openai.com/) — text-embedding-3-small
-- [CF Agents SDK](https://developers.cloudflare.com/agents/) — MCP Server 实现
+- [CF Agents SDK](https://developers.cloudflare.com/agents/) — MCP Server implementation
 
 ---
 
