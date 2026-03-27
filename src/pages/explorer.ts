@@ -71,9 +71,17 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
     <h1 class="font-headline text-5xl lg:text-7xl font-extrabold tracking-tighter text-on-surface mb-6 leading-none">
       Agent Query <span class="gradient-text">Explorer</span>
     </h1>
-    <p class="text-on-surface-variant text-lg max-w-2xl mb-10 leading-relaxed">
+    <p class="text-on-surface-variant text-lg max-w-2xl mb-8 leading-relaxed">
       Try the Disvr discovery API live. Describe what your agent needs and see the top 3 ranked recommendations instantly.
     </p>
+    <!-- API Key Input -->
+    <div class="glass-panel px-6 py-3 rounded-xl gradient-border mb-4 flex items-center gap-3">
+      <span class="material-symbols-outlined text-primary text-xl">key</span>
+      <input id="api-key-input" type="password" class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface text-sm placeholder:text-on-surface-variant/40 py-1 font-mono" placeholder="Paste your API key (dsvr_...)"/>
+      <button onclick="toggleKeyVisibility()" class="text-on-surface-variant hover:text-on-surface transition-colors"><span id="eye-icon" class="material-symbols-outlined text-lg">visibility_off</span></button>
+      <span id="key-status" class="text-xs text-on-surface-variant"></span>
+    </div>
+    <p class="text-xs text-on-surface-variant/60 mb-6">Don't have a key? <a href="/keys" class="text-secondary hover:underline">Get one for free</a></p>
     <div class="glass-panel p-2 rounded-[2.5rem] gradient-border shadow-2xl flex items-center">
       <div class="flex-1 flex items-center px-6">
         <span class="material-symbols-outlined text-secondary mr-4">search</span>
@@ -217,29 +225,79 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 </footer>
 
 <script>
-// Load service count on page load
-fetch('https://api.disvr.top/health').then(r => r.json()).then(d => {
+// Load service count
+fetch('/health').then(r => r.json()).then(d => {
   document.getElementById('stat-count').textContent = d.services_indexed || '--';
 }).catch(() => {});
+
+// API key management with localStorage
+const keyInput = document.getElementById('api-key-input');
+const keyStatus = document.getElementById('key-status');
+const savedKey = localStorage.getItem('disvr_api_key');
+if (savedKey) { keyInput.value = savedKey; keyStatus.textContent = 'Saved'; keyStatus.className = 'text-xs text-secondary'; }
+
+keyInput.addEventListener('input', function() {
+  const k = keyInput.value.trim();
+  if (k.startsWith('dsvr_') && k.length > 10) {
+    localStorage.setItem('disvr_api_key', k);
+    keyStatus.textContent = 'Saved';
+    keyStatus.className = 'text-xs text-secondary';
+  } else if (k.length === 0) {
+    localStorage.removeItem('disvr_api_key');
+    keyStatus.textContent = '';
+  } else {
+    keyStatus.textContent = 'Invalid format';
+    keyStatus.className = 'text-xs text-error';
+  }
+});
+
+function toggleKeyVisibility() {
+  const isHidden = keyInput.type === 'password';
+  keyInput.type = isHidden ? 'text' : 'password';
+  document.getElementById('eye-icon').textContent = isHidden ? 'visibility' : 'visibility_off';
+}
 
 function tryQuery(q) {
   document.getElementById('query-input').value = q;
   executeSearch();
 }
 
+function getApiKey() {
+  return keyInput.value.trim() || localStorage.getItem('disvr_api_key') || '';
+}
+
 async function executeSearch() {
   const query = document.getElementById('query-input').value.trim();
   if (query.length < 5) { alert('Please enter at least 5 characters.'); return; }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    document.getElementById('results-list').innerHTML = '<div class="text-center py-8"><p class="text-error mb-3">API key required</p><a href="/keys" class="inline-block bg-gradient-to-r from-primary to-secondary text-surface-container-lowest font-bold px-6 py-2 rounded-full text-sm">Get a Free API Key</a></div>';
+    document.getElementById('result-status').textContent = 'Missing API key';
+    return;
+  }
 
   document.getElementById('result-status').textContent = 'Searching...';
   document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-on-surface-variant"><span class="material-symbols-outlined text-3xl animate-spin">progress_activity</span><p class="mt-2">Querying Disvr API...</p></div>';
 
   try {
-    const res = await fetch('https://api.disvr.top/discover', {
+    const res = await fetch('/discover', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer test-key' },
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
       body: JSON.stringify({ need: query })
     });
+
+    if (res.status === 401) {
+      document.getElementById('result-status').textContent = 'Invalid key';
+      document.getElementById('results-list').innerHTML = '<div class="text-center py-8"><p class="text-error mb-3">Invalid API key. Please check your key or get a new one.</p><a href="/keys" class="inline-block bg-gradient-to-r from-primary to-secondary text-surface-container-lowest font-bold px-6 py-2 rounded-full text-sm">Get a Free API Key</a></div>';
+      return;
+    }
+    if (res.status === 429) {
+      document.getElementById('result-status').textContent = 'Rate limited';
+      document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-error"><p>Daily rate limit reached. Try again tomorrow or upgrade your plan.</p></div>';
+      return;
+    }
+
     const data = await res.json();
 
     if (data.recommendations && data.recommendations.length > 0) {

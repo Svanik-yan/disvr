@@ -82,8 +82,8 @@ tailwind.config = {
       <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
       API Status
     </a>
-    <a href="#cta" class="ethereal-gradient text-on-primary-fixed px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_20px_rgba(183,159,255,0.4)] transition-all active:scale-95">
-      Get Started
+    <a href="/keys" class="ethereal-gradient text-on-primary-fixed px-6 py-2 rounded-full font-bold text-sm hover:shadow-[0_0_20px_rgba(183,159,255,0.4)] transition-all active:scale-95">
+      Get API Key
     </a>
   </div>
 </nav>
@@ -109,8 +109,8 @@ tailwind.config = {
       </p>
 
       <div class="flex flex-wrap gap-6 pt-4">
-        <a href="#integration" class="ethereal-gradient text-on-primary-fixed px-10 py-4 rounded-full font-bold text-lg hover:shadow-[0_0_30px_rgba(183,159,255,0.4)] transition-all active:scale-95">
-          Access MCP Server
+        <a href="/keys" class="ethereal-gradient text-on-primary-fixed px-10 py-4 rounded-full font-bold text-lg hover:shadow-[0_0_30px_rgba(183,159,255,0.4)] transition-all active:scale-95">
+          Get Free API Key
         </a>
         <a href="https://github.com/Svanik-yan/disvr" target="_blank" class="glass-card px-10 py-4 rounded-full font-bold text-lg text-on-surface hover:bg-white/10 transition-all border border-white/10">
           View on GitHub
@@ -300,11 +300,11 @@ tailwind.config = {
       Add Disvr as your agent's MCP Server and let it find the best tools automatically. Free tier available &mdash; no credit card required.
     </p>
     <div class="flex flex-col sm:flex-row justify-center gap-6">
-      <a href="https://api.disvr.top/mcp" target="_blank" class="ethereal-gradient text-on-primary-fixed px-12 py-5 rounded-full font-bold text-xl hover:shadow-[0_0_40px_rgba(98,250,227,0.3)] transition-all active:scale-95">
-        Access MCP Server
+      <a href="/keys" class="ethereal-gradient text-on-primary-fixed px-12 py-5 rounded-full font-bold text-xl hover:shadow-[0_0_40px_rgba(98,250,227,0.3)] transition-all active:scale-95">
+        Get Free API Key
       </a>
-      <a href="mailto:yanchen330@gmail.com" class="px-12 py-5 rounded-full font-bold text-xl border border-white/10 hover:bg-white/5 transition-all">
-        Contact Us
+      <a href="/explorer" class="px-12 py-5 rounded-full font-bold text-xl border border-white/10 hover:bg-white/5 transition-all">
+        Try Explorer
       </a>
     </div>
   </div>
