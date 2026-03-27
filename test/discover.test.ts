@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyConstraints, rankServices, generateReason } from "../src/discover.js";
+import { applyConstraints, rankServices, generateReason, detectWeights, applyEliminationFilters } from "../src/discover.js";
 import type { Service } from "../src/types.js";
 
 function makeService(overrides: Partial<Service> = {}): Service {
@@ -201,5 +201,89 @@ describe("generateReason", () => {
     const service = makeService({ total_calls: 50000 });
     const reason = generateReason(service, 0.7, 0.8);
     expect(reason).toContain("50k+ calls");
+  });
+});
+
+// ─── detectWeights ───
+
+describe("detectWeights", () => {
+  it("returns default weights for generic query", () => {
+    const w = detectWeights("translate document to French");
+    expect(w.semantic).toBe(0.30);
+    expect(w.quality).toBe(0.25);
+    expect(w.cost_efficiency).toBe(0.25);
+    expect(w.reliability).toBe(0.20);
+  });
+
+  it("boosts cost_efficiency for cost-sensitive query", () => {
+    const w = detectWeights("find a free email sending tool");
+    expect(w.cost_efficiency).toBe(0.45);
+    expect(w.quality).toBe(0.15);
+  });
+
+  it("boosts reliability for reliability-sensitive query", () => {
+    const w = detectWeights("need a reliable production-ready OCR");
+    expect(w.reliability).toBe(0.40);
+  });
+
+  it("boosts quality for quality-sensitive query", () => {
+    const w = detectWeights("find the best translation API");
+    expect(w.quality).toBe(0.40);
+  });
+
+  it("boosts reliability for speed-sensitive query", () => {
+    const w = detectWeights("need a fast image processing tool");
+    expect(w.reliability).toBe(0.35);
+  });
+
+  it("handles low latency with underscore/space", () => {
+    const w = detectWeights("need low latency voice recognition");
+    expect(w.reliability).toBe(0.35);
+  });
+
+  it("matches first keyword only (no double-apply)", () => {
+    const w = detectWeights("cheap and reliable tool");
+    // "cheap" comes first in INTENT_KEYWORDS
+    expect(w.cost_efficiency).toBe(0.45);
+  });
+});
+
+// ─── applyEliminationFilters ───
+
+describe("applyEliminationFilters", () => {
+  it("eliminates services with uptime < 0.3", () => {
+    const candidates = [
+      { service: makeService({ id: "low", uptime_30d: 0.2 }), similarity: 0.9 },
+      { service: makeService({ id: "ok", uptime_30d: 0.8 }), similarity: 0.85 },
+    ];
+    const result = applyEliminationFilters(candidates);
+    expect(result).toHaveLength(1);
+    expect(result[0].service.id).toBe("ok");
+  });
+
+  it("penalizes stale services (>180 days)", () => {
+    const oldDate = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();
+    const service = makeService({ id: "stale", reputation_score: 4.0 }) as any;
+    service.updated_at = oldDate;
+    const candidates = [{ service, similarity: 0.9 }];
+    const result = applyEliminationFilters(candidates);
+    expect(result[0].service.reputation_score).toBe(2.0); // 4.0 * 0.5
+  });
+
+  it("does not penalize recently updated services", () => {
+    const recentDate = new Date().toISOString();
+    const service = makeService({ id: "fresh", reputation_score: 4.0 }) as any;
+    service.updated_at = recentDate;
+    const candidates = [{ service, similarity: 0.9 }];
+    const result = applyEliminationFilters(candidates);
+    expect(result[0].service.reputation_score).toBe(4.0);
+  });
+
+  it("keeps services with null uptime (assumes good)", () => {
+    const candidates = [
+      { service: makeService({ id: "unknown", uptime_30d: null }), similarity: 0.9 },
+    ];
+    const result = applyEliminationFilters(candidates);
+    expect(result).toHaveLength(1);
   });
 });

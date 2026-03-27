@@ -16,11 +16,91 @@ const TOP_N_RESULTS = 3;
 //   value_score = f(semantic_match, quality, cost_efficiency, reliability)
 //
 // This is what separates us from directories (pure match) and routers (pure cost).
+// Weights shift dynamically based on query intent keywords.
 
-const WEIGHT_SEMANTIC = 0.30;      // Does it do what you need?
-const WEIGHT_QUALITY = 0.25;       // How well does it perform?
-const WEIGHT_COST_EFFICIENCY = 0.25; // What's the cost per successful outcome?
-const WEIGHT_RELIABILITY = 0.20;   // Can you count on it?
+interface DynamicWeights {
+  semantic: number;
+  quality: number;
+  cost_efficiency: number;
+  reliability: number;
+}
+
+const DEFAULT_WEIGHTS: DynamicWeights = {
+  semantic: 0.30,
+  quality: 0.25,
+  cost_efficiency: 0.25,
+  reliability: 0.20,
+};
+
+const INTENT_KEYWORDS: Record<string, Partial<DynamicWeights>> = {
+  // Cost-sensitive
+  cheap: { cost_efficiency: 0.45, quality: 0.15 },
+  free: { cost_efficiency: 0.45, quality: 0.15 },
+  budget: { cost_efficiency: 0.40, quality: 0.15 },
+  affordable: { cost_efficiency: 0.40, quality: 0.15 },
+  // Reliability-sensitive
+  reliable: { reliability: 0.40, cost_efficiency: 0.10 },
+  production: { reliability: 0.40, cost_efficiency: 0.10 },
+  stable: { reliability: 0.35, cost_efficiency: 0.15 },
+  enterprise: { reliability: 0.35, cost_efficiency: 0.10 },
+  // Quality-sensitive
+  best: { quality: 0.40, cost_efficiency: 0.10 },
+  accurate: { quality: 0.40, cost_efficiency: 0.10 },
+  precise: { quality: 0.35, cost_efficiency: 0.15 },
+  advanced: { quality: 0.35, cost_efficiency: 0.15 },
+  // Speed-sensitive
+  fast: { reliability: 0.35, quality: 0.15 },
+  realtime: { reliability: 0.35, quality: 0.15 },
+  low_latency: { reliability: 0.35, quality: 0.15 },
+};
+
+export function detectWeights(need: string): DynamicWeights {
+  const lower = need.toLowerCase();
+  for (const [keyword, overrides] of Object.entries(INTENT_KEYWORDS)) {
+    const pattern = keyword.replace("_", "[\\s-]?");
+    if (new RegExp(`\\b${pattern}\\b`).test(lower)) {
+      return { ...DEFAULT_WEIGHTS, ...overrides };
+    }
+  }
+  return { ...DEFAULT_WEIGHTS };
+}
+
+// ─── Elimination Filters ───
+// Hard gate: drop services that can't meet minimum bar
+// Soft penalty: degrade stale services' quality scores
+
+export function applyEliminationFilters(
+  candidates: Array<{ service: Service; similarity: number }>,
+  now: Date = new Date()
+): Array<{ service: Service; similarity: number }> {
+  return candidates
+    .filter(({ service }) => {
+      // Hard elimination: reliability too low
+      const reliability = service.uptime_30d ?? 1;
+      return reliability >= 0.3;
+    })
+    .map((item) => {
+      // Soft penalty: >180 days since last update, halve quality signals
+      const updatedAt = (item.service as any).updated_at;
+      if (updatedAt) {
+        const daysSinceUpdate =
+          (now.getTime() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceUpdate > 180) {
+          return {
+            ...item,
+            service: {
+              ...item.service,
+              reputation_score:
+                item.service.reputation_score !== null
+                  ? item.service.reputation_score * 0.5
+                  : null,
+            },
+          };
+        }
+      }
+      return item;
+    });
+}
 
 export async function searchServices(
   env: Env,
@@ -71,8 +151,8 @@ export async function searchServices(
   // Step 2: Apply constraints
   const filtered = applyConstraints(candidates, request);
 
-  // Step 3: Rank by value (not just relevance)
-  const ranked = rankServices(filtered);
+  // Step 3: Rank by value (not just relevance) — weights shift by query intent
+  const ranked = rankServices(filtered, request.need);
   const topN = ranked.slice(0, TOP_N_RESULTS);
 
   // Step 4: Build recommendations with spend intelligence
@@ -204,9 +284,13 @@ interface RankedCandidate {
 }
 
 export function rankServices(
-  candidates: Array<{ service: Service; similarity: number }>
+  candidates: Array<{ service: Service; similarity: number }>,
+  need: string = ""
 ): RankedCandidate[] {
-  const scored = candidates.map((item) => {
+  const weights = detectWeights(need);
+  const filtered = applyEliminationFilters(candidates);
+
+  const scored = filtered.map((item) => {
     const s = item.service;
 
     // 1. Semantic relevance (0-1)
@@ -232,12 +316,12 @@ export function rankServices(
       : 0.5;
     const reliabilityScore = uptimeNorm * 0.4 + retryPenalty * 0.35 + latencyNorm * 0.25;
 
-    // Final value score
+    // Final value score — dynamic weights based on query intent
     const valueScore =
-      WEIGHT_SEMANTIC * semanticScore +
-      WEIGHT_QUALITY * qualityScore +
-      WEIGHT_COST_EFFICIENCY * costEfficiency +
-      WEIGHT_RELIABILITY * reliabilityScore;
+      weights.semantic * semanticScore +
+      weights.quality * qualityScore +
+      weights.cost_efficiency * costEfficiency +
+      weights.reliability * reliabilityScore;
 
     return { ...item, valueScore };
   });
