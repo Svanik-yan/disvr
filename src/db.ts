@@ -181,6 +181,12 @@ async function refreshServiceStats(
 
   const successRate = stats.successes / stats.total;
 
+  // Fetch current uptime + doc_completeness for richer reputation
+  const current = await db
+    .prepare("SELECT uptime_30d, doc_completeness FROM services WHERE id = ?1")
+    .bind(serviceId)
+    .first<{ uptime_30d: number | null; doc_completeness: number | null }>();
+
   await db
     .prepare(
       `UPDATE services SET
@@ -204,23 +210,60 @@ async function refreshServiceStats(
       stats.retry_rate,
       Math.round(stats.avg_latency),
       stats.cost_per_success,
-      computeReputation(successRate, stats.retry_rate, stats.total)
+      computeReputation({
+        successRate,
+        retryRate: stats.retry_rate,
+        volume: stats.total,
+        uptime: current?.uptime_30d ?? null,
+        docCompleteness: current?.doc_completeness ?? null,
+      })
     )
     .run();
 }
 
 /**
- * Reputation = f(success_rate, retry_rate, volume)
- * Not star ratings — data-driven quality signal.
+ * Reputation = f(success_rate, retry_rate, volume, uptime, doc_completeness)
+ *
+ * Multi-signal quality score (0-5):
+ *   - Call data (success + retry)  → 60% weight when available
+ *   - Uptime                       → 20% weight when available
+ *   - Volume (social proof)        → 10%
+ *   - Doc completeness             → 10%
+ *
+ * Gracefully degrades: missing signals get neutral defaults.
  */
-function computeReputation(
-  successRate: number,
-  retryRate: number,
-  volume: number
-): number {
-  const volumeBonus = Math.min(volume / 1000, 1) * 0.5;
-  const reliabilityScore = successRate * 3.5 + (1 - retryRate) * 1.0 + volumeBonus;
-  return Math.min(5, Math.max(0, reliabilityScore));
+interface ReputationInput {
+  successRate: number;
+  retryRate: number;
+  volume: number;
+  uptime: number | null;
+  docCompleteness: number | null;
+}
+
+export function computeReputation(input: ReputationInput): number {
+  const { successRate, retryRate, volume, uptime, docCompleteness } = input;
+
+  // Call reliability (0-5): success rate dominates, retry rate penalizes
+  const callScore = successRate * 4.0 + (1 - retryRate) * 1.0;
+
+  // Uptime (0-5): direct mapping, neutral if unknown
+  const uptimeScore = uptime !== null ? uptime * 5.0 : 2.5;
+
+  // Volume bonus (0-5): logarithmic — diminishing returns past 1000 calls
+  const volumeScore = volume > 0
+    ? Math.min(5, Math.log10(volume + 1) * 1.67)
+    : 0;
+
+  // Documentation quality (0-5): direct mapping
+  const docScore = docCompleteness !== null ? docCompleteness * 5.0 : 2.5;
+
+  const score =
+    callScore * 0.6 +
+    uptimeScore * 0.2 +
+    volumeScore * 0.1 +
+    docScore * 0.1;
+
+  return Math.min(5, Math.max(0, Math.round(score * 100) / 100));
 }
 
 // ─── API Key Management ───

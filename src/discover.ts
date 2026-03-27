@@ -35,21 +35,32 @@ export async function searchServices(
 
   if (embedding) {
     candidates = await vectorSearch(env, embedding);
-    // If vector search returns nothing (index may be syncing), fall back to FTS
-    if (candidates.length === 0) {
-      console.log("Vector search returned 0 results, falling back to FTS");
-      const ftsResults = await searchFTS(env.DB, request.need, TOP_K_CANDIDATES);
-      candidates = ftsResults.map((s, i) => ({
-        service: s,
-        similarity: 1 - i * 0.01,
-      }));
+
+    // Hybrid: supplement vector results with FTS to catch services not yet embedded
+    const ftsResults = await searchFTS(env.DB, request.need, TOP_K_CANDIDATES);
+    const vectorIds = new Set(candidates.map((c) => c.service.id));
+    const ftsOnly = ftsResults.filter((s) => !vectorIds.has(s.id));
+    if (ftsOnly.length > 0) {
+      // FTS-only results get a capped similarity (max 0.65) — they matched keywords but have no semantic score
+      candidates.push(
+        ...ftsOnly.map((s, i) => ({
+          service: s,
+          similarity: Math.max(0.3, 0.65 - i * 0.02),
+        }))
+      );
+    }
+
+    // If vector search returned nothing at all, FTS is primary
+    if (vectorIds.size === 0 && candidates.length === 0) {
+      console.log("Vector search returned 0 results, FTS is primary");
     }
   } else {
     console.log("Embedding failed, using FTS fallback");
     const ftsResults = await searchFTS(env.DB, request.need, TOP_K_CANDIDATES);
+    // FTS-only: capped similarity scores
     candidates = ftsResults.map((s, i) => ({
       service: s,
-      similarity: 1 - i * 0.01,
+      similarity: Math.max(0.3, 0.65 - i * 0.02),
     }));
   }
 
@@ -329,8 +340,10 @@ export function generateReason(
     parts.push("Highly relevant");
   } else if (similarity > 0.7) {
     parts.push("Good match");
-  } else {
+  } else if (similarity > 0.5) {
     parts.push("Partial match");
+  } else {
+    parts.push("Keyword match");
   }
 
   // Spend efficiency

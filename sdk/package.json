@@ -1,0 +1,43 @@
+{
+  "name": "@sylar_yan/disvr",
+  "version": "0.1.0",
+  "description": "Official SDK for Disvr — tool search engine for AI agents",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm --dts",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "ai-agent",
+    "tool-discovery",
+    "service-discovery",
+    "disvr"
+  ],
+  "author": "Reyn <yanchen330@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Svanik-yan/disvr",
+    "directory": "sdk"
+  },
+  "homepage": "https://www.disvr.top",
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.0"
+  }
+}
