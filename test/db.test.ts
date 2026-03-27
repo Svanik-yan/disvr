@@ -433,3 +433,127 @@ describe("computeReputation", () => {
     expect(high - mid).toBeLessThan(mid - low);
   });
 });
+
+// ─── insertReport ───
+
+describe("insertReport", () => {
+  it("writes report with all fields", async () => {
+    const { db, mockPrepare, mockBind, mockRun } = createMockDB();
+    mockRun.mockResolvedValue({});
+
+    const { insertReport } = await import("../src/db.js");
+    await insertReport(db, {
+      service_id: "smithery-test",
+      query_id: "q-123",
+      api_key_hash: "mcp_anonymous",
+      success: true,
+      latency_ms: 450,
+      error_message: undefined,
+    });
+
+    expect(mockPrepare).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO reports")
+    );
+    expect(mockBind).toHaveBeenCalledWith(
+      expect.any(String), // UUID
+      "smithery-test",
+      "q-123",
+      "mcp_anonymous",
+      1, // success = true → 1
+      450,
+      null // error_message undefined → null
+    );
+  });
+
+  it("writes report with optional fields as null", async () => {
+    const { db, mockPrepare, mockBind, mockRun } = createMockDB();
+    mockRun.mockResolvedValue({});
+
+    const { insertReport } = await import("../src/db.js");
+    await insertReport(db, {
+      service_id: "smithery-test",
+      query_id: "q-456",
+      api_key_hash: "mcp_anonymous",
+      success: false,
+    });
+
+    expect(mockBind).toHaveBeenCalledWith(
+      expect.any(String),
+      "smithery-test",
+      "q-456",
+      "mcp_anonymous",
+      0, // success = false → 0
+      null, // latency_ms
+      null // error_message
+    );
+  });
+
+  it("stores error_message when provided", async () => {
+    const { db, mockBind, mockRun } = createMockDB();
+    mockRun.mockResolvedValue({});
+
+    const { insertReport } = await import("../src/db.js");
+    await insertReport(db, {
+      service_id: "smithery-test",
+      query_id: "q-789",
+      api_key_hash: "mcp_anonymous",
+      success: false,
+      error_message: "Connection timeout",
+    });
+
+    expect(mockBind).toHaveBeenCalledWith(
+      expect.any(String),
+      "smithery-test",
+      "q-789",
+      "mcp_anonymous",
+      0,
+      null,
+      "Connection timeout"
+    );
+  });
+});
+
+// ─── getServiceReportStats ───
+
+describe("getServiceReportStats", () => {
+  it("returns aggregated stats", async () => {
+    const { db, mockFirst } = createMockDB();
+    mockFirst.mockResolvedValue({
+      total: 10,
+      success_rate: 0.8,
+      avg_latency_ms: 500,
+    });
+
+    const { getServiceReportStats } = await import("../src/db.js");
+    const stats = await getServiceReportStats(db, "smithery-test");
+    expect(stats.total).toBe(10);
+    expect(stats.success_rate).toBe(0.8);
+    expect(stats.avg_latency_ms).toBe(500);
+  });
+
+  it("returns zeros when no reports", async () => {
+    const { db, mockFirst } = createMockDB();
+    mockFirst.mockResolvedValue({
+      total: 0,
+      success_rate: 0,
+      avg_latency_ms: null,
+    });
+
+    const { getServiceReportStats } = await import("../src/db.js");
+    const stats = await getServiceReportStats(db, "nonexistent");
+    expect(stats.total).toBe(0);
+    expect(stats.success_rate).toBe(0);
+    expect(stats.avg_latency_ms).toBeNull();
+  });
+
+  it("returns defaults when query returns null", async () => {
+    const { db, mockFirst } = createMockDB();
+    mockFirst.mockResolvedValue(null);
+
+    const { getServiceReportStats } = await import("../src/db.js");
+    const stats = await getServiceReportStats(db, "smithery-test");
+    expect(stats.total).toBe(0);
+    expect(stats.success_rate).toBe(0);
+    expect(stats.avg_latency_ms).toBeNull();
+  });
+});
