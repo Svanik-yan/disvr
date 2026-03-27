@@ -24,6 +24,12 @@ CREATE TABLE IF NOT EXISTS services (
   verified INTEGER DEFAULT 0,
   source_url TEXT,
   last_health_check TEXT,     -- ISO 8601
+  install_command TEXT,        -- e.g. "npx @anthropic-ai/deepl-mcp"
+  install_runtime TEXT,        -- "node" | "python" | "docker" | "binary"
+  runtime_version TEXT,        -- e.g. "18" (minimum version)
+  service_type TEXT DEFAULT 'mcp_server',  -- "mcp_server" | "api" | "library" | "cli"
+  required_env TEXT,           -- JSON array: [{"key":"DEEPL_API_KEY","description":"...","free_tier":true}]
+  tools_provided TEXT,         -- JSON array: [{"name":"translate","description":"...","example_input":{...}}]
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

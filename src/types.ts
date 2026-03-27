@@ -33,6 +33,28 @@ export interface ServiceRow {
   updated_at: string;
 }
 
+// ─── Agent-Friendly Types ───
+
+export interface InstallInfo {
+  command: string;
+  runtime: "node" | "python" | "docker" | "binary";
+  min_version?: string;
+}
+
+export interface EnvRequirement {
+  key: string;
+  description: string;
+  free_tier?: boolean;
+}
+
+export interface ToolProvided {
+  name: string;
+  description: string;
+  example_input?: Record<string, unknown>;
+}
+
+export type ServiceType = "mcp_server" | "api" | "library" | "cli";
+
 // ─── Domain Types ───
 
 export interface Service {
@@ -55,6 +77,10 @@ export interface Service {
   doc_completeness: number | null;
   verified: boolean;
   source_url: string | null;
+  service_type?: ServiceType;
+  install?: InstallInfo | null;
+  required_env?: EnvRequirement[] | null;
+  tools_provided?: ToolProvided[] | null;
 }
 
 /**
@@ -82,8 +108,11 @@ export interface DiscoverRequest {
  * 核心创新：不只是匹配度，而是 spend efficiency 评分
  */
 export interface Recommendation {
+  service_id: string;
   service: string;
+  summary: string;
   platform: string;
+  type: ServiceType;
   protocol: string;
   endpoint: string;
   /** 单次调用价格 */
@@ -111,6 +140,8 @@ export interface Recommendation {
   estimated_tasks_per_budget: number | null;
   /** 推荐理由（机器可读 + 人可读） */
   reason: string;
+  /** 安装信息（可选，有则提供） */
+  install?: InstallInfo;
 }
 
 export interface DiscoverResponse {
@@ -192,6 +223,16 @@ export function rowToService(row: ServiceRow): Service {
     doc_completeness: row.doc_completeness,
     verified: row.verified === 1,
     source_url: row.source_url,
+    service_type: ((row as any).service_type as ServiceType) ?? "mcp_server",
+    install: (row as any).install_command
+      ? {
+          command: (row as any).install_command as string,
+          runtime: ((row as any).install_runtime as InstallInfo["runtime"]) ?? "node",
+          min_version: (row as any).runtime_version as string | undefined,
+        }
+      : null,
+    required_env: safeParseJson<EnvRequirement[]>((row as any).required_env, null) ?? null,
+    tools_provided: safeParseJson<ToolProvided[]>((row as any).tools_provided, null) ?? null,
   };
 }
 

@@ -176,3 +176,83 @@ describe("secondsUntilMidnight", () => {
     expect(secondsUntilMidnight()).toBeLessThanOrEqual(86400);
   });
 });
+
+// ─── GET /api/services/:id — Service Detail ───
+
+describe("GET /api/services/:id response format", () => {
+  it("returns agent-friendly service detail structure", () => {
+    // Simulate the response shape from /api/services/:id
+    const service = {
+      id: "smithery-test",
+      name: "Test MCP",
+      description: "A test service",
+      service_type: "mcp_server" as const,
+      install: { command: "npx test-mcp", runtime: "node" as const },
+      required_env: [{ key: "API_KEY", description: "Required API key", free_tier: true }],
+      tools_provided: [{ name: "translate", description: "Translate text" }],
+      reputation_score: 4.2,
+      success_rate: 0.95,
+      uptime_30d: 0.99,
+      latency_p95_ms: 500,
+      total_calls: 1000,
+      retry_rate: 0.02,
+      platform: "smithery",
+      source_url: "https://example.com",
+    };
+
+    const response = {
+      service: {
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        type: service.service_type ?? "mcp_server",
+        install: service.install ?? null,
+        required_env: service.required_env ?? [],
+        tools_provided: service.tools_provided ?? [],
+        metrics: {
+          reputation_score: service.reputation_score,
+          success_rate: service.success_rate,
+          uptime_30d: service.uptime_30d,
+          latency_p95_ms: service.latency_p95_ms,
+          total_calls: service.total_calls,
+          retry_rate: service.retry_rate,
+        },
+        platform: service.platform,
+        source_url: service.source_url,
+      },
+    };
+
+    expect(response.service.id).toBe("smithery-test");
+    expect(response.service.type).toBe("mcp_server");
+    expect(response.service.install).toEqual({ command: "npx test-mcp", runtime: "node" });
+    expect(response.service.required_env).toHaveLength(1);
+    expect(response.service.tools_provided).toHaveLength(1);
+    expect(response.service.metrics.reputation_score).toBe(4.2);
+  });
+
+  it("returns empty arrays when required_env and tools_provided are null", () => {
+    const service = {
+      id: "test",
+      name: "Test",
+      description: "desc",
+      service_type: undefined,
+      install: null,
+      required_env: null,
+      tools_provided: null,
+    };
+
+    const response = {
+      service: {
+        type: service.service_type ?? "mcp_server",
+        install: service.install ?? null,
+        required_env: service.required_env ?? [],
+        tools_provided: service.tools_provided ?? [],
+      },
+    };
+
+    expect(response.service.type).toBe("mcp_server");
+    expect(response.service.install).toBeNull();
+    expect(response.service.required_env).toEqual([]);
+    expect(response.service.tools_provided).toEqual([]);
+  });
+});

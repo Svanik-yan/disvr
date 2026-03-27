@@ -19,8 +19,10 @@ export async function upsertService(
       `INSERT INTO services (id, name, description, capabilities, platform, protocols, pricing,
         reputation_score, success_rate, uptime_30d, latency_p95_ms, total_calls,
         successful_calls, failed_calls, retry_rate, avg_cost_per_success,
-        doc_completeness, verified, source_url, last_health_check, updated_at)
-      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, datetime('now'))
+        doc_completeness, verified, source_url, last_health_check,
+        install_command, install_runtime, runtime_version, service_type, required_env, tools_provided,
+        updated_at)
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, datetime('now'))
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
         description = excluded.description,
@@ -40,6 +42,12 @@ export async function upsertService(
         verified = excluded.verified,
         source_url = excluded.source_url,
         last_health_check = excluded.last_health_check,
+        install_command = excluded.install_command,
+        install_runtime = excluded.install_runtime,
+        runtime_version = excluded.runtime_version,
+        service_type = excluded.service_type,
+        required_env = excluded.required_env,
+        tools_provided = excluded.tools_provided,
         updated_at = datetime('now')`
     )
     .bind(
@@ -62,9 +70,27 @@ export async function upsertService(
       service.doc_completeness,
       service.verified ? 1 : 0,
       service.source_url,
-      service.latency_p95_ms !== null ? new Date().toISOString() : null
+      service.latency_p95_ms !== null ? new Date().toISOString() : null,
+      service.install?.command ?? null,
+      service.install?.runtime ?? null,
+      service.install?.min_version ?? null,
+      service.service_type ?? "mcp_server",
+      service.required_env ? JSON.stringify(service.required_env) : null,
+      service.tools_provided ? JSON.stringify(service.tools_provided) : null
     )
     .run();
+}
+
+export async function getServiceDetail(
+  db: D1Database,
+  serviceId: string
+): Promise<Service | null> {
+  const row = await db
+    .prepare("SELECT * FROM services WHERE id = ?")
+    .bind(serviceId)
+    .first();
+  if (!row) return null;
+  return rowToService(row as any);
 }
 
 export async function getServicesByIds(
