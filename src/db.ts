@@ -427,24 +427,28 @@ export async function logRequest(
   db: D1Database,
   log: {
     api_key_hash: string;
-    query: string;
-    results_count: number;
+    endpoint: string;
+    need?: string;
+    response_service_ids?: string[];
+    query_id?: string;
+    status_code: number;
     latency_ms: number;
-    referer: string | null;
-    user_agent: string | null;
   }
 ): Promise<void> {
   await db
     .prepare(
-      "INSERT INTO request_logs (api_key_hash, query, results_count, latency_ms, referer, user_agent) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+      `INSERT INTO request_logs (id, api_key_hash, endpoint, need, response_service_ids, query_id, status_code, latency_ms, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`
     )
     .bind(
+      crypto.randomUUID(),
       log.api_key_hash,
-      log.query,
-      log.results_count,
-      log.latency_ms,
-      log.referer,
-      log.user_agent
+      log.endpoint,
+      log.need ?? null,
+      log.response_service_ids ? JSON.stringify(log.response_service_ids) : null,
+      log.query_id ?? null,
+      log.status_code,
+      log.latency_ms
     )
     .run();
 }
@@ -473,10 +477,11 @@ export async function getRequestStats(
       .all<{ date: string; calls: number; unique_keys: number }>(),
     db
       .prepare(
-        `SELECT query, COUNT(*) as count
+        `SELECT need as query, COUNT(*) as count
          FROM request_logs
          WHERE created_at >= datetime('now', '-' || ?1 || ' days')
-         GROUP BY query
+           AND need IS NOT NULL
+         GROUP BY need
          ORDER BY count DESC
          LIMIT 20`
       )
@@ -503,46 +508,181 @@ export async function getRequestStats(
 // ─── Daily Stats Aggregation ───
 
 export async function aggregateDailyStats(db: D1Database): Promise<number> {
-  const yesterday = new Date();
-  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-  const dateStr = yesterday.toISOString().split("T")[0];
-
-  const [callsRes, reportsRes, keysRes, queriesRes] = await Promise.all([
-    db.prepare(
-      `SELECT COUNT(*) as calls, COUNT(DISTINCT api_key_hash) as unique_keys
-       FROM request_logs WHERE date(created_at) = ?1`
-    ).bind(dateStr).first<{ calls: number; unique_keys: number }>(),
-    db.prepare(
-      `SELECT COUNT(*) as count FROM call_reports WHERE date(created_at) = ?1`
-    ).bind(dateStr).first<{ count: number }>(),
-    db.prepare(
-      `SELECT COUNT(*) as count FROM api_keys WHERE date(created_at) = ?1`
-    ).bind(dateStr).first<{ count: number }>(),
-    db.prepare(
-      `SELECT query, COUNT(*) as count FROM request_logs
-       WHERE date(created_at) = ?1 GROUP BY query ORDER BY count DESC LIMIT 10`
-    ).bind(dateStr).all<{ query: string; count: number }>(),
-  ]);
-
-  await db.prepare(
-    `INSERT INTO daily_stats (date, discover_calls, unique_keys, reports_count, new_keys, top_queries)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-     ON CONFLICT(date) DO UPDATE SET
-       discover_calls = excluded.discover_calls,
-       unique_keys = excluded.unique_keys,
-       reports_count = excluded.reports_count,
-       new_keys = excluded.new_keys,
-       top_queries = excluded.top_queries`
-  ).bind(
-    dateStr,
-    callsRes?.calls ?? 0,
-    callsRes?.unique_keys ?? 0,
-    reportsRes?.count ?? 0,
-    keysRes?.count ?? 0,
-    JSON.stringify(queriesRes.results ?? [])
-  ).run();
-
+  await db
+    .prepare(
+      `INSERT OR REPLACE INTO daily_stats (date, endpoint, request_count, unique_keys, avg_latency_ms, error_count)
+       SELECT
+         date(created_at) as date,
+         endpoint,
+         COUNT(*) as request_count,
+         COUNT(DISTINCT api_key_hash) as unique_keys,
+         AVG(latency_ms) as avg_latency_ms,
+         SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) as error_count
+       FROM request_logs
+       WHERE date(created_at) = date('now', '-1 day')
+       GROUP BY date(created_at), endpoint`
+    )
+    .run();
   return 1;
+}
+
+// ─── Passive Signal Detection ───
+
+export async function getRepeatSearchSignals(
+  db: D1Database
+): Promise<Array<{ service_ids: string; repeat_count: number }>> {
+  const rows = await db
+    .prepare(
+      `SELECT
+        r1.response_service_ids as service_ids,
+        COUNT(*) as repeat_count
+       FROM request_logs r1
+       WHERE r1.endpoint = '/discover'
+         AND r1.need IS NOT NULL
+         AND r1.created_at > datetime('now', '-7 days')
+         AND EXISTS (
+           SELECT 1 FROM request_logs r2
+           WHERE r2.api_key_hash = r1.api_key_hash
+             AND r2.endpoint = '/discover'
+             AND r2.need = r1.need
+             AND r2.id != r1.id
+             AND r2.created_at > datetime(r1.created_at, '-24 hours')
+             AND r2.created_at < datetime(r1.created_at, '+24 hours')
+         )
+       GROUP BY r1.api_key_hash, r1.need`
+    )
+    .all();
+  return (rows.results ?? []).map((r) => ({
+    service_ids: r.service_ids as string,
+    repeat_count: r.repeat_count as number,
+  }));
+}
+
+export async function getSatisfiedSearchSignals(
+  db: D1Database
+): Promise<Array<{ service_ids: string; satisfied_count: number }>> {
+  const rows = await db
+    .prepare(
+      `SELECT
+        r.response_service_ids as service_ids,
+        COUNT(*) as satisfied_count
+       FROM request_logs r
+       WHERE r.endpoint = '/discover'
+         AND r.need IS NOT NULL
+         AND r.response_service_ids IS NOT NULL
+         AND r.created_at < datetime('now', '-24 hours')
+         AND r.created_at > datetime('now', '-7 days')
+         AND NOT EXISTS (
+           SELECT 1 FROM request_logs r2
+           WHERE r2.api_key_hash = r.api_key_hash
+             AND r2.endpoint = '/discover'
+             AND r2.need = r.need
+             AND r2.id != r.id
+             AND r2.created_at > r.created_at
+             AND r2.created_at < datetime(r.created_at, '+24 hours')
+         )
+       GROUP BY r.response_service_ids`
+    )
+    .all();
+  return (rows.results ?? []).map((r) => ({
+    service_ids: r.service_ids as string,
+    satisfied_count: r.satisfied_count as number,
+  }));
+}
+
+export async function getLowConfidenceSignals(
+  db: D1Database
+): Promise<Array<{ service_id: string; recommend_count: number; report_count: number }>> {
+  const rows = await db
+    .prepare(
+      `SELECT
+        s.id as service_id,
+        COALESCE(rec.cnt, 0) as recommend_count,
+        COALESCE(rep.cnt, 0) as report_count
+       FROM services s
+       LEFT JOIN (
+         SELECT json_each.value as sid, COUNT(*) as cnt
+         FROM request_logs, json_each(request_logs.response_service_ids)
+         WHERE request_logs.endpoint = '/discover'
+           AND request_logs.created_at > datetime('now', '-30 days')
+         GROUP BY json_each.value
+       ) rec ON rec.sid = s.id
+       LEFT JOIN (
+         SELECT service_id, COUNT(*) as cnt
+         FROM reports
+         WHERE created_at > datetime('now', '-30 days')
+         GROUP BY service_id
+       ) rep ON rep.service_id = s.id
+       WHERE COALESCE(rec.cnt, 0) > 10
+         AND COALESCE(rep.cnt, 0) = 0`
+    )
+    .all();
+  return (rows.results ?? []).map((r) => ({
+    service_id: r.service_id as string,
+    recommend_count: r.recommend_count as number,
+    report_count: r.report_count as number,
+  }));
+}
+
+// ─── Signal Read/Write ───
+
+export async function upsertServiceSignal(
+  db: D1Database,
+  signal: {
+    service_id: string;
+    signal_type: string;
+    signal_value: number;
+    sample_count: number;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO service_signals (service_id, signal_type, signal_value, sample_count, updated_at)
+       VALUES (?, ?, ?, ?, datetime('now'))
+       ON CONFLICT (service_id, signal_type)
+       DO UPDATE SET signal_value = ?, sample_count = ?, updated_at = datetime('now')`
+    )
+    .bind(
+      signal.service_id,
+      signal.signal_type,
+      signal.signal_value,
+      signal.sample_count,
+      signal.signal_value,
+      signal.sample_count
+    )
+    .run();
+}
+
+export async function getServiceSignals(
+  db: D1Database,
+  serviceIds: string[]
+): Promise<Map<string, Record<string, number>>> {
+  if (serviceIds.length === 0) return new Map();
+  const placeholders = serviceIds.map(() => "?").join(",");
+  const rows = await db
+    .prepare(
+      `SELECT service_id, signal_type, signal_value, updated_at
+       FROM service_signals
+       WHERE service_id IN (${placeholders})`
+    )
+    .bind(...serviceIds)
+    .all();
+
+  const result = new Map<string, Record<string, number>>();
+  for (const row of rows.results ?? []) {
+    const sid = row.service_id as string;
+    const type = row.signal_type as string;
+    const value = row.signal_value as number;
+    const updatedAt = row.updated_at as string;
+
+    // Exponential decay: half-life ~7 days
+    const daysSince = (Date.now() - new Date(updatedAt).getTime()) / (1000 * 60 * 60 * 24);
+    const decayed = value * Math.exp(-0.1 * daysSince);
+
+    if (!result.has(sid)) result.set(sid, {});
+    result.get(sid)![type] = decayed;
+  }
+  return result;
 }
 
 // ─── Public API: Aggregated Stats ───
