@@ -6,6 +6,8 @@ export const landingPageHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <title>Disvr — The Intelligence Layer for the Agent Economy</title>
 <meta name="description" content="Disvr helps AI agents find the best tools at the best price. Spend intelligence, not just search. MCP Server + REST API."/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>

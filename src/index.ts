@@ -11,11 +11,30 @@ import { registryPageHtml } from "./pages/registry.js";
 import { explorerPageHtml } from "./pages/explorer.js";
 import { analyticsPageHtml } from "./pages/analytics.js";
 import { keysPageHtml } from "./pages/keys.js";
+import { FAVICON_32_B64, APPLE_TOUCH_B64, ICON_192_B64 } from "./icons.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 // CORS
 app.use("*", cors());
+
+// Favicon & icons
+app.get("/favicon.ico", (c) => {
+  const buf = Uint8Array.from(atob(FAVICON_32_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
+app.get("/favicon.png", (c) => {
+  const buf = Uint8Array.from(atob(FAVICON_32_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
+app.get("/apple-touch-icon.png", (c) => {
+  const buf = Uint8Array.from(atob(APPLE_TOUCH_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
+app.get("/icon-192.png", (c) => {
+  const buf = Uint8Array.from(atob(ICON_192_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
 
 // Landing page
 app.get("/", (c) => {
