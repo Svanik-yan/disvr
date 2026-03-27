@@ -1,8 +1,13 @@
-<h1 align="center">🔍 Disvr</h1>
+# Disvr
 
-<p align="center">
-  <strong>Spend Intelligence for AI Agents — the "Yelp for the Agent Economy"</strong>
-</p>
+**The Ranking Engine for AI Agent Tools**
+
+Quality intelligence for the MCP ecosystem. We index 500+ MCP servers, rank them by real usage signals, and help agents find the best tool in one API call.
+
+- Semantic search + 4-dimensional quality ranking
+- Intent-aware dynamic weights (cost / reliability / quality / speed)
+- Passive signal collection from real usage data
+- Zero lock-in — recommend only, never execute
 
 <p align="center">
   <a href="https://www.disvr.top"><img src="https://img.shields.io/badge/Live-www.disvr.top-00d4aa?style=for-the-badge" alt="Live Site"></a>
@@ -11,22 +16,8 @@
 </p>
 
 <p align="center">
-  <a href="#why-disvr">Why Disvr</a> · <a href="#quick-start">Quick Start</a> · <a href="#api-reference">API</a> · <a href="#architecture">Architecture</a> · <a href="https://www.disvr.top/explorer">Live Demo</a> · <a href="docs/README_zh.md">中文文档</a>
+  <a href="#quick-start">Quick Start</a> · <a href="#api-reference">API</a> · <a href="#architecture">Architecture</a> · <a href="https://www.disvr.top/explorer">Live Demo</a> · <a href="docs/README_zh.md">中文文档</a>
 </p>
-
----
-
-## Why Disvr?
-
-The AI Agent ecosystem is exploding. Payment protocols (Stripe MPP, OpenAI ACP, x402) solve **how to pay**. Directories (Smithery, Composio) solve **what exists**.
-
-But nobody solves the most critical question: **which tool is actually worth using?**
-
-> 🤖 "Translate a Chinese legal contract to Thai" → 50 translation services on Smithery. **Which one has the best cost/quality ratio?**
->
-> 🤖 "Scrape product prices from e-commerce sites" → 30 scraping tools. **Which one has the highest success rate and lowest latency?**
->
-> 🤖 "Generate a product image" → 20 image generation services. **Which one is cheapest while still being good enough?**
 
 Right now, agents pick blindly. Wrong picks mean wasted money, wasted time, and failed tasks.
 
