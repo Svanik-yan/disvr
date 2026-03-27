@@ -3,7 +3,7 @@ import type {
   Env, Service, DiscoverRequest, Recommendation,
   DiscoverResponse, SpendSummary,
 } from "./types.js";
-import { getServicesByIds, searchFTS } from "./db.js";
+import { getServicesByIds, searchFTS, getServiceSignals } from "./db.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -151,8 +151,12 @@ export async function searchServices(
   // Step 2: Apply constraints
   const filtered = applyConstraints(candidates, request);
 
-  // Step 3: Rank by value (not just relevance) — weights shift by query intent
-  const ranked = rankServices(filtered, request.need);
+  // Step 3: Pre-fetch passive signals for candidate services
+  const candidateIds = filtered.map((c) => c.service.id);
+  const signals = await getServiceSignals(env.DB, candidateIds);
+
+  // Step 4: Rank by value (not just relevance) — weights shift by query intent
+  const ranked = rankServices(filtered, request.need, signals);
   const topN = ranked.slice(0, TOP_N_RESULTS);
 
   // Step 4: Build recommendations with spend intelligence
@@ -285,7 +289,8 @@ interface RankedCandidate {
 
 export function rankServices(
   candidates: Array<{ service: Service; similarity: number }>,
-  need: string = ""
+  need: string = "",
+  signals: Map<string, Record<string, number>> = new Map()
 ): RankedCandidate[] {
   const weights = detectWeights(need);
   const filtered = applyEliminationFilters(candidates);
@@ -299,7 +304,7 @@ export function rankServices(
     // 2. Quality score (0-1): success rate + reputation
     const successNorm = s.success_rate ?? 0.5;
     const reputationNorm = (s.reputation_score ?? 2.5) / 5;
-    const qualityScore = successNorm * 0.6 + reputationNorm * 0.4;
+    let qualityScore = successNorm * 0.6 + reputationNorm * 0.4;
 
     // 3. Cost efficiency (0-1): lower cost_per_success = better
     //    For free services, perfect score. For paid, normalize against $1/call ceiling
@@ -314,14 +319,33 @@ export function rankServices(
     const latencyNorm = s.latency_p95_ms !== null
       ? Math.max(0, 1 - s.latency_p95_ms / 10000)
       : 0.5;
-    const reliabilityScore = uptimeNorm * 0.4 + retryPenalty * 0.35 + latencyNorm * 0.25;
+    let reliabilityScore = uptimeNorm * 0.4 + retryPenalty * 0.35 + latencyNorm * 0.25;
+
+    // 5. Apply passive signals (from cron-aggregated user behavior)
+    const svcSignals = signals.get(s.id);
+    if (svcSignals) {
+      // repeat_search: negative signal → penalize reliability
+      if (svcSignals.repeat_search) {
+        reliabilityScore = Math.max(0, reliabilityScore + svcSignals.repeat_search);
+      }
+      // satisfied: positive signal → boost quality + reliability
+      if (svcSignals.satisfied) {
+        qualityScore = Math.min(1, qualityScore + svcSignals.satisfied);
+        reliabilityScore = Math.min(1, reliabilityScore + svcSignals.satisfied);
+      }
+    }
 
     // Final value score — dynamic weights based on query intent
-    const valueScore =
+    let valueScore =
       weights.semantic * semanticScore +
       weights.quality * qualityScore +
       weights.cost_efficiency * costEfficiency +
       weights.reliability * reliabilityScore;
+
+    // low_confidence: global multiplier (0.7–1.0)
+    if (svcSignals?.low_confidence) {
+      valueScore *= svcSignals.low_confidence;
+    }
 
     return { ...item, valueScore };
   });

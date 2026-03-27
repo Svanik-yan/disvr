@@ -110,23 +110,24 @@ CREATE TABLE IF NOT EXISTS query_cache (
   created_at TEXT DEFAULT (datetime('now'))
 );
 
--- ─── Request Logs: track every /discover call ───
+-- ─── Request Logs: track every API call ───
 
 CREATE TABLE IF NOT EXISTS request_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id TEXT PRIMARY KEY,
   api_key_hash TEXT NOT NULL,
-  query TEXT NOT NULL,
-  results_count INTEGER NOT NULL DEFAULT 0,
-  latency_ms INTEGER,
-  referer TEXT,
-  user_agent TEXT,
+  endpoint TEXT NOT NULL,
+  need TEXT,
+  response_service_ids TEXT,   -- JSON array of recommended service IDs
+  query_id TEXT,
+  status_code INTEGER NOT NULL,
+  latency_ms INTEGER NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_request_logs_created ON request_logs(created_at);
-CREATE INDEX IF NOT EXISTS idx_request_logs_key ON request_logs(api_key_hash);
-
--- ─── Daily Stats: aggregated history (cron job fills this) ───
+CREATE INDEX IF NOT EXISTS idx_request_logs_api_key_hash ON request_logs(api_key_hash);
+CREATE INDEX IF NOT EXISTS idx_request_logs_endpoint ON request_logs(endpoint);
+CREATE INDEX IF NOT EXISTS idx_request_logs_created_at ON request_logs(created_at);
+CREATE INDEX IF NOT EXISTS idx_request_logs_need ON request_logs(need);
 
 -- ─── MCP Reports: simplified feedback from MCP channel ───
 
@@ -149,10 +150,22 @@ CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at);
 -- ─── Daily Stats: aggregated history (cron job fills this) ───
 
 CREATE TABLE IF NOT EXISTS daily_stats (
-  date TEXT PRIMARY KEY,
-  discover_calls INTEGER NOT NULL DEFAULT 0,
+  date TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  request_count INTEGER NOT NULL DEFAULT 0,
   unique_keys INTEGER NOT NULL DEFAULT 0,
-  reports_count INTEGER NOT NULL DEFAULT 0,
-  new_keys INTEGER NOT NULL DEFAULT 0,
-  top_queries TEXT -- JSON array of top 10 search terms
+  avg_latency_ms REAL,
+  error_count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, endpoint)
+);
+
+-- ─── Service Passive Signal Scores (cron aggregates daily) ───
+
+CREATE TABLE IF NOT EXISTS service_signals (
+  service_id TEXT NOT NULL,
+  signal_type TEXT NOT NULL,        -- 'repeat_search' | 'satisfied' | 'low_confidence'
+  signal_value REAL NOT NULL,       -- signal strength
+  sample_count INTEGER NOT NULL,    -- how many samples this is based on
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (service_id, signal_type)
 );
