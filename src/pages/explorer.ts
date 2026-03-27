@@ -218,6 +218,19 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
       </a>
     </div>
   </div>
+
+  <!-- SDK Hint -->
+  <div class="mt-8 glass-panel rounded-xl border border-primary/20 p-6 flex items-start gap-4">
+    <span class="material-symbols-outlined text-primary text-2xl mt-0.5">terminal</span>
+    <div>
+      <p class="text-on-surface font-semibold mb-1">Prefer code? Use the SDK</p>
+      <p class="text-on-surface-variant text-sm mb-3">npm install <code class="text-primary">@sylar_yan/disvr</code> — typed client with built-in retries</p>
+      <div class="flex gap-3">
+        <a href="https://www.npmjs.com/package/@sylar_yan/disvr" target="_blank" class="text-sm text-secondary hover:text-secondary-dim transition-colors">npm &rarr;</a>
+        <a href="https://github.com/Svanik-yan/disvr" target="_blank" class="text-sm text-primary hover:text-primary-dim transition-colors">GitHub &rarr;</a>
+      </div>
+    </div>
+  </div>
 </main>
 
 <!-- Footer -->

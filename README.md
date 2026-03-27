@@ -184,6 +184,33 @@ Tools exposed via the MCP Server:
 
 ---
 
+## SDK
+
+TypeScript/JavaScript SDK with full type safety:
+
+```bash
+npm install @sylar_yan/disvr
+```
+
+```typescript
+import { Disvr } from "@sylar_yan/disvr";
+
+const client = new Disvr("dsvr_your_api_key");
+
+const result = await client.discover({
+  need: "translate Chinese legal contract to Thai",
+  max_latency_ms: 3000,
+  min_reputation: 3.5,
+});
+
+console.log(result.recommendations);
+```
+
+- [npm](https://www.npmjs.com/package/@sylar_yan/disvr)
+- [GitHub](https://github.com/Svanik-yan/disvr)
+
+---
+
 ## Architecture
 
 ```
