@@ -348,8 +348,11 @@ function buildRecommendation(
     : null;
 
   return {
+    service_id: service.id,
     service: service.name,
+    summary: truncate(service.description, 120),
     platform: service.platform,
+    type: service.service_type ?? "mcp_server",
     protocol: primaryProtocol,
     endpoint: primaryEndpoint,
     price_usd: service.pricing.price_usd,
@@ -363,6 +366,7 @@ function buildRecommendation(
     retry_rate: service.retry_rate,
     estimated_tasks_per_budget: estimatedTasks,
     reason: generateReason(service, valueScore, similarity),
+    ...(service.install ? { install: service.install } : {}),
   };
 }
 
@@ -480,6 +484,11 @@ async function hashText(text: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+export function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 3) + "...";
 }
 
 function round2(n: number): number {

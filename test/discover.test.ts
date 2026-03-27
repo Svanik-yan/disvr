@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyConstraints, rankServices, generateReason, detectWeights, applyEliminationFilters } from "../src/discover.js";
+import { applyConstraints, rankServices, generateReason, detectWeights, applyEliminationFilters, truncate } from "../src/discover.js";
 import type { Service } from "../src/types.js";
 
 function makeService(overrides: Partial<Service> = {}): Service {
@@ -285,5 +285,52 @@ describe("applyEliminationFilters", () => {
     ];
     const result = applyEliminationFilters(candidates);
     expect(result).toHaveLength(1);
+  });
+});
+
+// ─── Agent-Friendly Response Format ───
+
+describe("truncate", () => {
+  it("returns short text unchanged", () => {
+    expect(truncate("hello", 120)).toBe("hello");
+  });
+
+  it("truncates long text with ellipsis", () => {
+    const long = "a".repeat(200);
+    const result = truncate(long, 120);
+    expect(result.length).toBe(120);
+    expect(result.endsWith("...")).toBe(true);
+  });
+
+  it("returns exact-length text unchanged", () => {
+    const exact = "a".repeat(120);
+    expect(truncate(exact, 120)).toBe(exact);
+  });
+});
+
+describe("agent-friendly recommendation format", () => {
+  it("includes service_id, summary, and type in ranked output", () => {
+    const service = makeService({
+      id: "test-agent",
+      name: "Test Agent Service",
+      description: "A long description that helps agents understand what this service does in detail",
+      service_type: "mcp_server",
+      install: { command: "npx test-mcp", runtime: "node" },
+    });
+    const candidates = [{ service, similarity: 0.9 }];
+    const ranked = rankServices(candidates, "translate document");
+    expect(ranked).toHaveLength(1);
+    expect(ranked[0].service.id).toBe("test-agent");
+    expect(ranked[0].service.install).toEqual({ command: "npx test-mcp", runtime: "node" });
+  });
+
+  it("handles service without install info", () => {
+    const service = makeService({
+      id: "no-install",
+      install: null,
+    });
+    const candidates = [{ service, similarity: 0.9 }];
+    const ranked = rankServices(candidates, "test query");
+    expect(ranked[0].service.install).toBeNull();
   });
 });

@@ -107,6 +107,22 @@ function smitheryToService(server: SmitheryServer): Service {
     doc_completeness: calculateDocCompleteness(server),
     verified: server.isDeployed === true,
     source_url: server.homepage ?? null,
+    service_type: "mcp_server",
+    install: extractInstallInfo(server),
+    required_env: null,
+    tools_provided: server.tools
+      ? server.tools.map((t) => ({ name: t.name, description: t.description ?? "" }))
+      : null,
+  };
+}
+
+function extractInstallInfo(server: SmitheryServer): { command: string; runtime: "node" | "python" | "docker" | "binary"; min_version?: string } | null {
+  // Smithery MCP servers are typically installed via npx
+  const name = server.qualifiedName;
+  if (!name) return null;
+  return {
+    command: `npx -y @smithery/cli install ${name} --client claude`,
+    runtime: "node",
   };
 }
 
@@ -324,7 +340,26 @@ function mcpRegistryToService(entry: McpRegistryServer): Service {
     doc_completeness: Math.min(1, docCompleteness),
     verified: true, // Listed in official registry
     source_url: `https://registry.modelcontextprotocol.io/v0.1/servers/${encodeURIComponent(name)}`,
+    service_type: "mcp_server",
+    install: extractMcpRegistryInstall(entry),
+    required_env: null,
+    tools_provided: null,
   };
+}
+
+function extractMcpRegistryInstall(entry: McpRegistryServer): { command: string; runtime: "node" | "python" | "docker" | "binary" } | null {
+  if (!entry.server.packages || entry.server.packages.length === 0) return null;
+  const pkg = entry.server.packages[0];
+  if (pkg.type === "npm") {
+    return { command: `npx -y ${pkg.registry || entry.server.name}`, runtime: "node" };
+  }
+  if (pkg.type === "python") {
+    return { command: `pip install ${pkg.registry || entry.server.name}`, runtime: "python" };
+  }
+  if (pkg.type === "docker") {
+    return { command: `docker pull ${pkg.registry || entry.server.name}`, runtime: "docker" };
+  }
+  return null;
 }
 
 // ─── GitHub Awesome MCP Servers Crawler ───
@@ -444,6 +479,10 @@ function entryToService(entry: ParsedEntry): Service {
     doc_completeness: entry.description.length > 50 ? 0.7 : 0.4,
     verified: entry.isOfficial,
     source_url: entry.url,
+    service_type: "mcp_server",
+    install: null,
+    required_env: null,
+    tools_provided: null,
   };
 }
 

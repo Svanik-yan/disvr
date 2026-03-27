@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
-import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats } from "./db.js";
+import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats, getServiceDetail } from "./db.js";
 import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
@@ -185,6 +185,34 @@ app.get("/api/services", async (c) => {
   const sort = c.req.query("sort") || undefined;
   const result = await getServicesPaginated(c.env.DB, { page, limit, search, platform, sort });
   return c.json(result);
+});
+
+app.get("/api/services/:id", async (c) => {
+  const service = await getServiceDetail(c.env.DB, c.req.param("id"));
+  if (!service) {
+    return c.json({ error: "not_found", message: "Service not found" }, 404);
+  }
+  return c.json({
+    service: {
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      type: service.service_type ?? "mcp_server",
+      install: service.install ?? null,
+      required_env: service.required_env ?? [],
+      tools_provided: service.tools_provided ?? [],
+      metrics: {
+        reputation_score: service.reputation_score,
+        success_rate: service.success_rate,
+        uptime_30d: service.uptime_30d,
+        latency_p95_ms: service.latency_p95_ms,
+        total_calls: service.total_calls,
+        retry_rate: service.retry_rate,
+      },
+      platform: service.platform,
+      source_url: service.source_url,
+    },
+  });
 });
 
 app.get("/api/stats", async (c) => {
