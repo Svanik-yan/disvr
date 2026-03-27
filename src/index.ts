@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
-import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail } from "./db.js";
+import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats } from "./db.js";
 import { crawlSmithery, crawlAwesomeMcp, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
@@ -11,11 +11,30 @@ import { registryPageHtml } from "./pages/registry.js";
 import { explorerPageHtml } from "./pages/explorer.js";
 import { analyticsPageHtml } from "./pages/analytics.js";
 import { keysPageHtml } from "./pages/keys.js";
+import { FAVICON_32_B64, APPLE_TOUCH_B64, ICON_192_B64 } from "./icons.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
 // CORS
 app.use("*", cors());
+
+// Favicon & icons
+app.get("/favicon.ico", (c) => {
+  const buf = Uint8Array.from(atob(FAVICON_32_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
+app.get("/favicon.png", (c) => {
+  const buf = Uint8Array.from(atob(FAVICON_32_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
+app.get("/apple-touch-icon.png", (c) => {
+  const buf = Uint8Array.from(atob(APPLE_TOUCH_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
+app.get("/icon-192.png", (c) => {
+  const buf = Uint8Array.from(atob(ICON_192_B64), (ch) => ch.charCodeAt(0));
+  return c.body(buf, 200, { "Content-Type": "image/png", "Cache-Control": "public, max-age=604800" });
+});
 
 // Landing page
 app.get("/", (c) => {
@@ -74,6 +93,8 @@ app.use("/discover", async (c, next) => {
 
 // Main discovery endpoint
 app.post("/discover", async (c) => {
+  const startTime = Date.now();
+
   let body: DiscoverRequest;
   try {
     body = await c.req.json<DiscoverRequest>();
@@ -103,6 +124,21 @@ app.post("/discover", async (c) => {
     budget_usd: body.budget_usd,
     task_context: body.task_context,
   });
+
+  // Log request (non-blocking)
+  const authHeader = c.req.header("Authorization") ?? "";
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  c.executionCtx.waitUntil(
+    logRequest(c.env.DB, {
+      api_key_hash: keyHash,
+      query: body.need.trim(),
+      results_count: result.recommendations?.length ?? 0,
+      latency_ms: Date.now() - startTime,
+      referer: c.req.header("Referer") ?? null,
+      user_agent: c.req.header("User-Agent") ?? null,
+    })
+  );
 
   return c.json(result);
 });
@@ -153,6 +189,12 @@ app.get("/api/services", async (c) => {
 
 app.get("/api/stats", async (c) => {
   const stats = await getSystemStats(c.env.DB);
+  return c.json(stats);
+});
+
+app.get("/api/analytics", async (c) => {
+  const days = Math.min(90, Math.max(1, parseInt(c.req.query("days") || "7") || 7));
+  const stats = await getRequestStats(c.env.DB, days);
   return c.json(stats);
 });
 

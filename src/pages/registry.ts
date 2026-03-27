@@ -3,6 +3,8 @@ export const registryPageHtml = `<!DOCTYPE html>
 <html class="dark" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <title>Disvr — Provider Registry</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
@@ -45,7 +47,7 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 <!-- Nav -->
 <nav class="fixed top-0 w-full z-50 bg-slate-950/60 backdrop-blur-xl border-b border-white/10 flex justify-between items-center px-8 h-20 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
   <div class="flex items-center gap-8">
-    <a href="/" class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent font-headline">Disvr</a>
+    <a href="/" class="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent font-headline"><img src="/favicon.png" alt="Disvr" class="w-8 h-8"/>Disvr</a>
     <div class="hidden md:flex items-center gap-6">
       <a class="text-slate-400 hover:text-slate-100 transition-colors" href="/">Home</a>
       <a class="text-teal-400 border-b-2 border-teal-400 pb-1" href="/registry">Registry</a>

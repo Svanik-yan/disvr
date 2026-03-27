@@ -6,6 +6,8 @@ export const landingPageHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <title>Disvr — The Intelligence Layer for the Agent Economy</title>
 <meta name="description" content="Disvr helps AI agents find the best tools at the best price. Spend intelligence, not just search. MCP Server + REST API."/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
@@ -68,7 +70,7 @@ tailwind.config = {
 
 <!-- Nav -->
 <nav class="fixed top-0 w-full z-50 flex justify-between items-center px-8 h-20 bg-slate-950/60 backdrop-blur-xl border-b border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.36)]">
-  <a href="/" class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent font-headline">Disvr</a>
+  <a href="/" class="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent font-headline"><img src="/favicon.png" alt="Disvr" class="w-8 h-8"/>Disvr</a>
   <div class="hidden md:flex items-center gap-6">
     <a class="text-teal-400 border-b-2 border-teal-400 pb-1" href="/">Home</a>
     <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/registry">Registry</a>

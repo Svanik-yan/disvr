@@ -3,6 +3,8 @@ export const analyticsPageHtml = `<!DOCTYPE html>
 <html class="dark" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link rel="icon" type="image/png" href="/favicon.png"/>
+<link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
 <title>Disvr — Analytics Dashboard</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
@@ -43,7 +45,7 @@ tailwind.config = {
 <!-- Nav -->
 <nav class="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-4 bg-slate-950/60 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border-b border-white/10">
   <div class="flex items-center gap-8">
-    <a href="/" class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-300 bg-clip-text text-transparent font-headline">Disvr</a>
+    <a href="/" class="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-300 bg-clip-text text-transparent font-headline"><img src="/favicon.png" alt="Disvr" class="w-8 h-8"/>Disvr</a>
     <div class="hidden md:flex gap-6 items-center">
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/">Home</a>
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/registry">Registry</a>
