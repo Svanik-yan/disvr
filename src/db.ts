@@ -289,11 +289,11 @@ export async function getKeyCountByEmail(
 
 export function getRateLimit(tier: string): number {
   const limits: Record<string, number> = {
-    free: 50,
-    pro: 5000,
-    scale: 999999,
+    free: 1000,
+    pro: 1000,
+    scale: 1000,
   };
-  return limits[tier] ?? 50;
+  return limits[tier] ?? 1000;
 }
 
 export async function getServiceCount(db: D1Database): Promise<number> {

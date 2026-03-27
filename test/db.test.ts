@@ -4,21 +4,21 @@ import { getRateLimit } from "../src/db.js";
 // ─── getRateLimit (pure function, no DB dependency) ───
 
 describe("getRateLimit", () => {
-  it("returns 50 for free tier", () => {
-    expect(getRateLimit("free")).toBe(50);
+  it("returns 1000 for free tier", () => {
+    expect(getRateLimit("free")).toBe(1000);
   });
 
-  it("returns 5000 for pro tier", () => {
-    expect(getRateLimit("pro")).toBe(5000);
+  it("returns 1000 for pro tier", () => {
+    expect(getRateLimit("pro")).toBe(1000);
   });
 
-  it("returns 999999 for scale tier", () => {
-    expect(getRateLimit("scale")).toBe(999999);
+  it("returns 1000 for scale tier", () => {
+    expect(getRateLimit("scale")).toBe(1000);
   });
 
-  it("defaults to 50 for unknown tier", () => {
-    expect(getRateLimit("unknown")).toBe(50);
-    expect(getRateLimit("")).toBe(50);
+  it("defaults to 1000 for unknown tier", () => {
+    expect(getRateLimit("unknown")).toBe(1000);
+    expect(getRateLimit("")).toBe(1000);
   });
 });
 

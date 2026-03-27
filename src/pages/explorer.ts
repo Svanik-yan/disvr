@@ -294,7 +294,7 @@ async function executeSearch() {
     }
     if (res.status === 429) {
       document.getElementById('result-status').textContent = 'Rate limited';
-      document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-error"><p>Daily rate limit reached. Try again tomorrow or upgrade your plan.</p></div>';
+      document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-error"><p>Daily rate limit reached (1,000 requests/day). Try again tomorrow.</p></div>';
       return;
     }
 

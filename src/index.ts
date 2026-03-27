@@ -60,7 +60,7 @@ app.use("/discover", async (c, next) => {
     return c.json(
       {
         error: "rate_limited",
-        message: `Daily limit of ${limit} requests exceeded. Upgrade your plan for higher limits.`,
+        message: `Daily limit of ${limit} requests exceeded. Resets at midnight UTC.`,
         retry_after_seconds: secondsUntilMidnight(),
       },
       429
@@ -192,7 +192,7 @@ app.post("/api/register", async (c) => {
     status: "ok",
     api_key: apiKey,
     tier: "free",
-    daily_limit: 50,
+    daily_limit: 1000,
     message: "Save this key — it will not be shown again.",
   });
 });

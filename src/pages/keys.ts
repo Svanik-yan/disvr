@@ -121,44 +121,34 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
     </div>
   </div>
 
-  <!-- Plan Comparison -->
+  <!-- What You Get -->
   <div class="glass-panel p-8 rounded-xl gradient-border">
-    <h3 class="font-headline text-xl font-bold mb-6">Plans</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="bg-surface-container-high rounded-xl p-6 border border-secondary/30">
-        <div class="text-xs uppercase tracking-widest text-secondary mb-2">Free</div>
-        <div class="text-3xl font-headline font-extrabold mb-1">$0</div>
-        <div class="text-on-surface-variant text-sm mb-4">50 requests / day</div>
-        <ul class="space-y-2 text-sm text-on-surface-variant">
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-base">check</span> Semantic search</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-base">check</span> Top 3 recommendations</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-base">check</span> Spend intelligence</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-secondary text-base">check</span> MCP Server access</li>
-        </ul>
+    <h3 class="font-headline text-xl font-bold mb-2">Everything is Free</h3>
+    <p class="text-on-surface-variant text-sm mb-6">Disvr is completely free during the open beta. No credit card, no limits on features.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="flex items-center gap-3 bg-surface-container-high rounded-lg p-4">
+        <span class="material-symbols-outlined text-secondary">search</span>
+        <div><div class="font-medium text-sm">Semantic Search</div><div class="text-xs text-on-surface-variant">AI-powered tool discovery</div></div>
       </div>
-      <div class="bg-surface-container-high rounded-xl p-6 border border-primary/30">
-        <div class="text-xs uppercase tracking-widest text-primary mb-2">Pro</div>
-        <div class="text-3xl font-headline font-extrabold mb-1">$29<span class="text-base font-normal text-on-surface-variant">/mo</span></div>
-        <div class="text-on-surface-variant text-sm mb-4">5,000 requests / day</div>
-        <ul class="space-y-2 text-sm text-on-surface-variant">
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base">check</span> Everything in Free</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base">check</span> Priority API access</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base">check</span> Extended call reports</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-primary text-base">check</span> Email support</li>
-        </ul>
-        <div class="mt-4 text-xs text-on-surface-variant italic">Coming soon</div>
+      <div class="flex items-center gap-3 bg-surface-container-high rounded-lg p-4">
+        <span class="material-symbols-outlined text-secondary">recommend</span>
+        <div><div class="font-medium text-sm">Top 3 Recommendations</div><div class="text-xs text-on-surface-variant">Ranked by value score</div></div>
       </div>
-      <div class="bg-surface-container-high rounded-xl p-6 border border-tertiary/30">
-        <div class="text-xs uppercase tracking-widest text-tertiary mb-2">Scale</div>
-        <div class="text-3xl font-headline font-extrabold mb-1">Custom</div>
-        <div class="text-on-surface-variant text-sm mb-4">Unlimited requests</div>
-        <ul class="space-y-2 text-sm text-on-surface-variant">
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-base">check</span> Everything in Pro</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-base">check</span> Dedicated support</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-base">check</span> Custom integrations</li>
-          <li class="flex items-center gap-2"><span class="material-symbols-outlined text-tertiary text-base">check</span> SLA guarantee</li>
-        </ul>
-        <div class="mt-4 text-xs text-on-surface-variant italic">Contact us</div>
+      <div class="flex items-center gap-3 bg-surface-container-high rounded-lg p-4">
+        <span class="material-symbols-outlined text-secondary">paid</span>
+        <div><div class="font-medium text-sm">Spend Intelligence</div><div class="text-xs text-on-surface-variant">Cost per success, retry rates</div></div>
+      </div>
+      <div class="flex items-center gap-3 bg-surface-container-high rounded-lg p-4">
+        <span class="material-symbols-outlined text-secondary">hub</span>
+        <div><div class="font-medium text-sm">MCP Server Access</div><div class="text-xs text-on-surface-variant">Direct agent integration</div></div>
+      </div>
+      <div class="flex items-center gap-3 bg-surface-container-high rounded-lg p-4">
+        <span class="material-symbols-outlined text-secondary">speed</span>
+        <div><div class="font-medium text-sm">1,000 Requests / Day</div><div class="text-xs text-on-surface-variant">Generous daily limit</div></div>
+      </div>
+      <div class="flex items-center gap-3 bg-surface-container-high rounded-lg p-4">
+        <span class="material-symbols-outlined text-secondary">assessment</span>
+        <div><div class="font-medium text-sm">Call Reports</div><div class="text-xs text-on-surface-variant">Feedback loop for better recs</div></div>
       </div>
     </div>
   </div>
