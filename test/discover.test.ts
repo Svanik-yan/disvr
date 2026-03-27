@@ -167,6 +167,59 @@ describe("rankServices", () => {
       expect(result[i - 1].valueScore).toBeGreaterThanOrEqual(result[i].valueScore);
     }
   });
+
+  it("applies repeat_search penalty to reliability score", () => {
+    const candidates = [
+      { service: makeService({ id: "penalized", uptime_30d: 0.95 }), similarity: 0.85 },
+      { service: makeService({ id: "clean", uptime_30d: 0.95 }), similarity: 0.85 },
+    ];
+    const signals = new Map<string, Record<string, number>>();
+    signals.set("penalized", { repeat_search: -0.2 });
+
+    const result = rankServices(candidates, "", signals);
+    const penalized = result.find((r) => r.service.id === "penalized")!;
+    const clean = result.find((r) => r.service.id === "clean")!;
+    expect(penalized.valueScore).toBeLessThan(clean.valueScore);
+  });
+
+  it("applies satisfied bonus to quality and reliability", () => {
+    const candidates = [
+      { service: makeService({ id: "boosted", success_rate: 0.7 }), similarity: 0.85 },
+      { service: makeService({ id: "neutral", success_rate: 0.7 }), similarity: 0.85 },
+    ];
+    const signals = new Map<string, Record<string, number>>();
+    signals.set("boosted", { satisfied: 0.15 });
+
+    const result = rankServices(candidates, "", signals);
+    const boosted = result.find((r) => r.service.id === "boosted")!;
+    const neutral = result.find((r) => r.service.id === "neutral")!;
+    expect(boosted.valueScore).toBeGreaterThan(neutral.valueScore);
+  });
+
+  it("applies low_confidence multiplier to overall score", () => {
+    const candidates = [
+      { service: makeService({ id: "uncertain" }), similarity: 0.9 },
+      { service: makeService({ id: "normal" }), similarity: 0.9 },
+    ];
+    const signals = new Map<string, Record<string, number>>();
+    signals.set("uncertain", { low_confidence: 0.7 });
+
+    const result = rankServices(candidates, "", signals);
+    const uncertain = result.find((r) => r.service.id === "uncertain")!;
+    const normal = result.find((r) => r.service.id === "normal")!;
+    expect(uncertain.valueScore).toBeLessThan(normal.valueScore);
+    // Should be approximately 0.7x of normal
+    expect(uncertain.valueScore / normal.valueScore).toBeCloseTo(0.7, 1);
+  });
+
+  it("handles empty signals map gracefully", () => {
+    const candidates = [
+      { service: makeService({ id: "svc-1" }), similarity: 0.8 },
+    ];
+    const result = rankServices(candidates, "", new Map());
+    expect(result).toHaveLength(1);
+    expect(result[0].valueScore).toBeGreaterThan(0);
+  });
 });
 
 describe("generateReason", () => {

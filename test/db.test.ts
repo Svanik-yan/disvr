@@ -275,18 +275,36 @@ describe("getSystemStats", () => {
 // ─── logRequest ───
 
 describe("logRequest", () => {
-  it("inserts a request log entry", async () => {
+  it("inserts a request log with new schema fields", async () => {
     const { db, mockRun, mockPrepare } = createMockDB();
     mockRun.mockResolvedValue({});
 
     const { logRequest } = await import("../src/db.js");
     await logRequest(db, {
       api_key_hash: "abc123",
-      query: "translate Chinese to Thai",
-      results_count: 3,
+      endpoint: "/discover",
+      need: "translate Chinese to Thai",
+      response_service_ids: ["svc-1", "svc-2"],
+      query_id: "q-123",
+      status_code: 200,
       latency_ms: 150,
-      referer: null,
-      user_agent: "disvr-sdk/0.1.0",
+    });
+
+    expect(mockPrepare).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO request_logs")
+    );
+  });
+
+  it("handles optional fields as null", async () => {
+    const { db, mockRun, mockPrepare } = createMockDB();
+    mockRun.mockResolvedValue({});
+
+    const { logRequest } = await import("../src/db.js");
+    await logRequest(db, {
+      api_key_hash: "abc123",
+      endpoint: "/report",
+      status_code: 200,
+      latency_ms: 50,
     });
 
     expect(mockPrepare).toHaveBeenCalledWith(
@@ -333,34 +351,17 @@ describe("getRequestStats", () => {
 // ─── aggregateDailyStats ───
 
 describe("aggregateDailyStats", () => {
-  it("aggregates yesterday's data and upserts into daily_stats", async () => {
-    let callIdx = 0;
-    const results = [
-      { calls: 25, unique_keys: 3 },   // request_logs counts
-      { count: 5 },                      // call_reports count
-      { count: 2 },                      // new api_keys count
-      { results: [{ query: "translate", count: 10 }] }, // top queries
-      {},                                 // INSERT run result
-    ];
+  it("runs INSERT OR REPLACE to aggregate daily stats by endpoint", async () => {
+    const { db, mockRun, mockPrepare } = createMockDB();
+    mockRun.mockResolvedValue({});
 
-    const mockPrepare = vi.fn().mockImplementation(() => {
-      const idx = callIdx++;
-      return {
-        bind: vi.fn().mockReturnValue({
-          first: vi.fn().mockResolvedValue(idx < 3 ? results[idx] : undefined),
-          all: vi.fn().mockResolvedValue(idx === 3 ? results[idx] : undefined),
-          run: vi.fn().mockResolvedValue(idx === 4 ? results[idx] : undefined),
-        }),
-      };
-    });
-
-    const db = { prepare: mockPrepare } as unknown as D1Database;
     const { aggregateDailyStats } = await import("../src/db.js");
     const count = await aggregateDailyStats(db);
 
     expect(count).toBe(1);
-    // 4 SELECT queries + 1 INSERT = 5 prepare calls
-    expect(mockPrepare).toHaveBeenCalledTimes(5);
+    expect(mockPrepare).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT OR REPLACE INTO daily_stats")
+    );
   });
 });
 
@@ -555,5 +556,83 @@ describe("getServiceReportStats", () => {
     expect(stats.total).toBe(0);
     expect(stats.success_rate).toBe(0);
     expect(stats.avg_latency_ms).toBeNull();
+  });
+});
+
+// ─── upsertServiceSignal ───
+
+describe("upsertServiceSignal", () => {
+  it("inserts signal with ON CONFLICT update", async () => {
+    const { db, mockRun, mockPrepare } = createMockDB();
+    mockRun.mockResolvedValue({});
+
+    const { upsertServiceSignal } = await import("../src/db.js");
+    await upsertServiceSignal(db, {
+      service_id: "svc-1",
+      signal_type: "repeat_search",
+      signal_value: -0.15,
+      sample_count: 3,
+    });
+
+    expect(mockPrepare).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO service_signals")
+    );
+    expect(mockPrepare).toHaveBeenCalledWith(
+      expect.stringContaining("ON CONFLICT")
+    );
+  });
+});
+
+// ─── getServiceSignals ───
+
+describe("getServiceSignals", () => {
+  it("returns empty map for empty ids", async () => {
+    const { db } = createMockDB();
+
+    const { getServiceSignals } = await import("../src/db.js");
+    const result = await getServiceSignals(db, []);
+    expect(result.size).toBe(0);
+  });
+
+  it("returns signals with exponential decay applied", async () => {
+    const now = new Date();
+    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString();
+
+    const { db, mockAll } = createMockDB();
+    mockAll.mockResolvedValue({
+      results: [
+        { service_id: "svc-1", signal_type: "satisfied", signal_value: 0.2, updated_at: twoDaysAgo },
+        { service_id: "svc-1", signal_type: "repeat_search", signal_value: -0.1, updated_at: twoDaysAgo },
+      ],
+    });
+
+    const { getServiceSignals } = await import("../src/db.js");
+    const result = await getServiceSignals(db, ["svc-1"]);
+
+    expect(result.has("svc-1")).toBe(true);
+    const signals = result.get("svc-1")!;
+    // After 2 days decay: value * exp(-0.1 * 2) ≈ value * 0.818
+    expect(signals.satisfied).toBeLessThan(0.2);
+    expect(signals.satisfied).toBeGreaterThan(0.15);
+    expect(signals.repeat_search).toBeGreaterThan(-0.1);
+    expect(signals.repeat_search).toBeLessThan(-0.07);
+  });
+
+  it("groups signals by service id", async () => {
+    const now = new Date().toISOString();
+    const { db, mockAll } = createMockDB();
+    mockAll.mockResolvedValue({
+      results: [
+        { service_id: "svc-1", signal_type: "satisfied", signal_value: 0.1, updated_at: now },
+        { service_id: "svc-2", signal_type: "low_confidence", signal_value: 0.8, updated_at: now },
+      ],
+    });
+
+    const { getServiceSignals } = await import("../src/db.js");
+    const result = await getServiceSignals(db, ["svc-1", "svc-2"]);
+
+    expect(result.size).toBe(2);
+    expect(result.get("svc-1")).toHaveProperty("satisfied");
+    expect(result.get("svc-2")).toHaveProperty("low_confidence");
   });
 });

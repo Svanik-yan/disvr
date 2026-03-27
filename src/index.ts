@@ -4,6 +4,7 @@ import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
 import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats, getServiceDetail } from "./db.js";
 import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
+import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
 import { landingPageHtml } from "./landing.js";
@@ -132,11 +133,12 @@ app.post("/discover", async (c) => {
   c.executionCtx.waitUntil(
     logRequest(c.env.DB, {
       api_key_hash: keyHash,
-      query: body.need.trim(),
-      results_count: result.recommendations?.length ?? 0,
+      endpoint: "/discover",
+      need: body.need.trim(),
+      response_service_ids: result.recommendations?.map((r) => r.service_id) ?? [],
+      query_id: result.query_id,
+      status_code: 200,
       latency_ms: Date.now() - startTime,
-      referer: c.req.header("Referer") ?? null,
-      user_agent: c.req.header("User-Agent") ?? null,
     })
   );
 
@@ -171,7 +173,20 @@ app.post("/report", async (c) => {
     return c.json({ error: "missing_fields", message: "service_id and query_id are required." }, 400);
   }
 
+  const reportStartTime = Date.now();
   await insertCallReport(c.env.DB, body, keyHash);
+
+  // Log report request (non-blocking)
+  c.executionCtx.waitUntil(
+    logRequest(c.env.DB, {
+      api_key_hash: keyHash,
+      endpoint: "/report",
+      query_id: body.query_id,
+      status_code: 200,
+      latency_ms: Date.now() - reportStartTime,
+    })
+  );
+
   return c.json({ status: "ok", message: "Call report recorded. Thank you for improving recommendations." });
 });
 
@@ -368,8 +383,8 @@ const worker = {
         await enrichGitHubStars(env).catch((err) => console.error("GitHub stars enrichment failed:", err));
         // Phase 3: run health checks
         await runHealthChecks(env).catch((err) => console.error("Health checks failed:", err));
-        // Phase 4: aggregate daily stats (idempotent — safe to run every hour)
-        await aggregateDailyStats(env.DB).catch((err) => console.error("Daily stats aggregation failed:", err));
+        // Phase 4: aggregate daily stats + passive signals (idempotent — safe to run every hour)
+        await runSignalAggregation(env.DB).catch((err) => console.error("Signal aggregation failed:", err));
       })()
     );
   },
