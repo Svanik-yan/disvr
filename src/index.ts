@@ -140,8 +140,8 @@ app.post("/report", async (c) => {
 // ─── Public API: Service Listing & Stats ───
 
 app.get("/api/services", async (c) => {
-  const page = Math.max(1, parseInt(c.req.query("page") || "1"));
-  const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit") || "20")));
+  const page = Math.max(1, parseInt(c.req.query("page") || "1") || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit") || "20") || 1));
   const search = c.req.query("search") || undefined;
   const platform = c.req.query("platform") || undefined;
   const sort = c.req.query("sort") || undefined;
