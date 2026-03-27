@@ -45,7 +45,7 @@ tailwind.config = {
 <!-- Nav -->
 <nav class="fixed top-0 w-full z-50 flex justify-between items-center px-8 py-4 bg-slate-950/60 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border-b border-white/10">
   <div class="flex items-center gap-8">
-    <a href="/" class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-300 bg-clip-text text-transparent font-headline">Disvr</a>
+    <a href="/" class="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-300 bg-clip-text text-transparent font-headline"><img src="/favicon.png" alt="Disvr" class="w-8 h-8"/>Disvr</a>
     <div class="hidden md:flex gap-6 items-center">
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/">Home</a>
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/registry">Registry</a>

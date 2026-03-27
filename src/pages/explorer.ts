@@ -51,7 +51,7 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 <header class="fixed top-0 w-full z-50 bg-slate-950/60 backdrop-blur-xl shadow-[0_8px_32px_0_rgba(0,0,0,0.4)] border-b border-white/10">
   <div class="flex justify-between items-center px-8 py-4 w-full">
     <div class="flex items-center gap-8">
-      <a href="/" class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-300 bg-clip-text text-transparent font-headline tracking-tight">Disvr</a>
+      <a href="/" class="flex items-center gap-2 text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-300 bg-clip-text text-transparent font-headline tracking-tight"><img src="/favicon.png" alt="Disvr" class="w-8 h-8"/>Disvr</a>
       <nav class="hidden md:flex items-center gap-6">
         <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/">Home</a>
         <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/registry">Registry</a>
