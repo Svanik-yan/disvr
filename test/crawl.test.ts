@@ -146,6 +146,115 @@ describe("crawlSmithery", () => {
   });
 });
 
+// ─── crawlAwesomeMcp ───
+
+describe("crawlAwesomeMcp", () => {
+  it("parses appcypher format README and upserts services", async () => {
+    const mockRun = vi.fn().mockResolvedValue({});
+    const mockBind = vi.fn().mockReturnValue({ run: mockRun });
+    const mockPrepare = vi.fn().mockReturnValue({ bind: mockBind });
+    const mockBatch = vi.fn().mockResolvedValue([]);
+    const mockDB = { prepare: mockPrepare, batch: mockBatch } as unknown as D1Database;
+
+    const fakeAppcypherReadme = [
+      "# Awesome MCP Servers",
+      "",
+      "## 📂 File Systems",
+      "",
+      '- <img src="https://example.com/icon.png" height="14"/> [FileSystem](https://github.com/example/filesystem) - Direct local file system access',
+      '- <img src="https://example.com/icon2.png" height="14"/> [Docker](https://github.com/example/docker)<sup><sup>⭐</sup></sup> - Docker container management',
+      "",
+      "## 🔍 Search & Web",
+      "",
+      '- <img src="https://example.com/icon3.png" height="14"/> [WebSearch](https://github.com/example/websearch) - Search the web with AI',
+    ].join("\n");
+
+    const fakeWong2Readme = [
+      "# Awesome MCP Servers",
+      "",
+      "## Official Servers",
+      "",
+      "- **[Stripe](https://github.com/stripe/mcp)** - Payment processing integration",
+      "",
+      "## Community Servers",
+      "",
+      "- **[Redis MCP](https://github.com/example/redis-mcp)** - Redis database operations for caching and storage",
+    ].join("\n");
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("appcypher")) {
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(fakeAppcypherReadme) });
+      }
+      if (url.includes("wong2")) {
+        return Promise.resolve({ ok: true, text: () => Promise.resolve(fakeWong2Readme) });
+      }
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    const { crawlAwesomeMcp } = await import("../src/crawl.js");
+
+    const env = {
+      DB: mockDB,
+      VECTORIZE: { upsert: vi.fn() },
+      OPENAI_API_KEY: "test-key",
+      ENVIRONMENT: "test",
+    } as any;
+
+    const count = await crawlAwesomeMcp(env);
+
+    // 3 from appcypher + 2 from wong2 = 5
+    expect(count).toBe(5);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(mockPrepare).toHaveBeenCalled();
+
+    globalThis.fetch = originalFetch;
+  });
+
+  it("deduplicates entries across repos", async () => {
+    const mockRun = vi.fn().mockResolvedValue({});
+    const mockBind = vi.fn().mockReturnValue({ run: mockRun });
+    const mockPrepare = vi.fn().mockReturnValue({ bind: mockBind });
+    const mockBatch = vi.fn().mockResolvedValue([]);
+    const mockDB = { prepare: mockPrepare, batch: mockBatch } as unknown as D1Database;
+
+    const readme1 = '- <img src="x" height="14"/> [FileSystem](https://github.com/a/fs) - File access';
+    const readme2 = '- **[FileSystem](https://github.com/b/fs)** - File access v2';
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("appcypher")) return Promise.resolve({ ok: true, text: () => Promise.resolve(readme1) });
+      if (url.includes("wong2")) return Promise.resolve({ ok: true, text: () => Promise.resolve(readme2) });
+      return Promise.resolve({ ok: false, status: 404 });
+    });
+
+    const { crawlAwesomeMcp } = await import("../src/crawl.js");
+    const env = { DB: mockDB, VECTORIZE: { upsert: vi.fn() }, OPENAI_API_KEY: "k", ENVIRONMENT: "test" } as any;
+
+    const count = await crawlAwesomeMcp(env);
+    expect(count).toBe(1);
+
+    globalThis.fetch = originalFetch;
+  });
+
+  it("handles GitHub fetch failure gracefully", async () => {
+    const mockDB = {
+      prepare: vi.fn().mockReturnValue({ bind: vi.fn().mockReturnValue({ run: vi.fn() }) }),
+    } as unknown as D1Database;
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 404 });
+
+    const { crawlAwesomeMcp } = await import("../src/crawl.js");
+    const env = { DB: mockDB, VECTORIZE: { upsert: vi.fn() }, OPENAI_API_KEY: "k", ENVIRONMENT: "test" } as any;
+
+    const count = await crawlAwesomeMcp(env);
+    expect(count).toBe(0);
+
+    globalThis.fetch = originalFetch;
+  });
+});
+
 describe("embedAndIndex", () => {
   it("batches services and calls OpenAI + Vectorize", async () => {
     const mockUpsert = vi.fn().mockResolvedValue(undefined);

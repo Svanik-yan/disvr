@@ -362,8 +362,12 @@ export async function getSystemStats(db: D1Database): Promise<{
   platforms: { platform: string; count: number }[];
   top_services: { name: string; reputation_score: number | null; total_calls: number }[];
   recent_reports: { service_id: string; success: number; created_at: string }[];
+  services_by_date: { date: string; count: number }[];
+  recent_services: { name: string; platform: string; created_at: string }[];
+  verified_count: number;
+  with_stars_count: number;
 }> {
-  const [countRes, reportRes, rateRes, latRes, platformRes, topRes, recentRes] = await Promise.all([
+  const [countRes, reportRes, rateRes, latRes, platformRes, topRes, recentRes, byDateRes, recentSvcRes, verifiedRes, starsRes] = await Promise.all([
     db.prepare("SELECT COUNT(*) as c FROM services").first<{ c: number }>(),
     db.prepare("SELECT COUNT(*) as c FROM call_reports").first<{ c: number }>(),
     db.prepare("SELECT AVG(success_rate) as v FROM services WHERE success_rate IS NOT NULL").first<{ v: number | null }>(),
@@ -371,6 +375,10 @@ export async function getSystemStats(db: D1Database): Promise<{
     db.prepare("SELECT platform, COUNT(*) as count FROM services GROUP BY platform ORDER BY count DESC").all<{ platform: string; count: number }>(),
     db.prepare("SELECT name, reputation_score, total_calls FROM services ORDER BY total_calls DESC, reputation_score DESC LIMIT 10").all<{ name: string; reputation_score: number | null; total_calls: number }>(),
     db.prepare("SELECT service_id, success, created_at FROM call_reports ORDER BY created_at DESC LIMIT 20").all<{ service_id: string; success: number; created_at: string }>(),
+    db.prepare("SELECT date(created_at) as date, COUNT(*) as count FROM services GROUP BY date(created_at) ORDER BY date DESC LIMIT 14").all<{ date: string; count: number }>(),
+    db.prepare("SELECT name, platform, created_at FROM services ORDER BY created_at DESC LIMIT 8").all<{ name: string; platform: string; created_at: string }>(),
+    db.prepare("SELECT COUNT(*) as c FROM services WHERE verified = 1").first<{ c: number }>(),
+    db.prepare("SELECT COUNT(*) as c FROM services WHERE reputation_score IS NOT NULL").first<{ c: number }>(),
   ]);
 
   return {
@@ -381,5 +389,9 @@ export async function getSystemStats(db: D1Database): Promise<{
     platforms: platformRes.results ?? [],
     top_services: topRes.results ?? [],
     recent_reports: recentRes.results ?? [],
+    services_by_date: (byDateRes.results ?? []).reverse(),
+    recent_services: recentSvcRes.results ?? [],
+    verified_count: verifiedRes?.c ?? 0,
+    with_stars_count: starsRes?.c ?? 0,
   };
 }

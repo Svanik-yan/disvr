@@ -79,7 +79,7 @@ tailwind.config = {
           <span class="material-symbols-outlined text-2xl text-secondary">database</span>
         </div>
         <div class="text-4xl font-headline font-extrabold text-on-surface" id="kpi-services">--</div>
-        <div class="text-xs text-on-surface-variant mt-1">From Smithery registry</div>
+        <div class="text-xs text-on-surface-variant mt-1">Multi-source index</div>
       </div>
     </div>
     <div class="glass-card rounded-xl p-6 group relative overflow-hidden">
@@ -238,6 +238,54 @@ tailwind.config = {
     </div>
   </div>
 
+  <!-- Index Growth & Recent Additions -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+    <!-- Index Growth Trend -->
+    <div class="lg:col-span-2 glass-card rounded-xl p-8">
+      <h2 class="text-xl font-headline font-bold mb-2">Index Growth</h2>
+      <p class="text-xs text-on-surface-variant mb-6">Services added per day (last 14 days)</p>
+      <div id="growth-chart" class="h-48 flex items-end gap-1">
+        <div class="text-sm text-on-surface-variant">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Recent Additions -->
+    <div class="glass-card rounded-xl overflow-hidden">
+      <div class="px-8 py-5 border-b border-white/5">
+        <h2 class="text-xl font-headline font-bold">Recently Added</h2>
+        <p class="text-xs text-on-surface-variant">Newest services in the index</p>
+      </div>
+      <div id="recent-additions" class="divide-y divide-white/5">
+        <div class="px-8 py-8 text-center text-on-surface-variant text-sm">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Extra KPIs -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+    <div class="glass-card rounded-xl p-6 flex items-center gap-4">
+      <span class="material-symbols-outlined text-3xl text-secondary">verified</span>
+      <div>
+        <div class="text-2xl font-headline font-extrabold text-on-surface" id="kpi-verified">--</div>
+        <div class="text-xs text-on-surface-variant">Verified Services</div>
+      </div>
+    </div>
+    <div class="glass-card rounded-xl p-6 flex items-center gap-4">
+      <span class="material-symbols-outlined text-3xl text-primary">star</span>
+      <div>
+        <div class="text-2xl font-headline font-extrabold text-on-surface" id="kpi-stars">--</div>
+        <div class="text-xs text-on-surface-variant">With GitHub Stars</div>
+      </div>
+    </div>
+    <div class="glass-card rounded-xl p-6 flex items-center gap-4">
+      <span class="material-symbols-outlined text-3xl text-tertiary">source</span>
+      <div>
+        <div class="text-2xl font-headline font-extrabold text-on-surface" id="kpi-sources">--</div>
+        <div class="text-xs text-on-surface-variant">Data Sources</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Architecture -->
   <div class="glass-card rounded-xl overflow-hidden">
     <div class="p-8 border-b border-outline-variant/10">
@@ -361,6 +409,45 @@ async function loadStats() {
       '</div>';
     });
     document.getElementById('recent-reports').innerHTML = recentHtml || '<div class="px-8 py-8 text-center text-on-surface-variant text-sm">No feedback reports yet. Reports appear here after agents use POST /report.</div>';
+
+    // Extra KPIs
+    document.getElementById('kpi-verified').textContent = s.verified_count ?? 0;
+    document.getElementById('kpi-stars').textContent = s.with_stars_count ?? 0;
+    document.getElementById('kpi-sources').textContent = (s.platforms || []).length;
+
+    // Index growth chart
+    var dates = s.services_by_date || [];
+    if (dates.length > 0) {
+      var maxCount = Math.max.apply(null, dates.map(function(d) { return d.count; }));
+      var growthHtml = dates.map(function(d) {
+        var h = maxCount > 0 ? Math.max(4, Math.round(d.count / maxCount * 100)) : 4;
+        var label = d.date ? d.date.slice(5) : '';
+        return '<div class="flex-1 flex flex-col items-center gap-1">' +
+          '<span class="text-[10px] text-on-surface-variant">' + d.count + '</span>' +
+          '<div class="w-full bg-gradient-to-t from-secondary/30 to-secondary/70 rounded-t-lg transition-all" style="height: ' + h + '%"></div>' +
+          '<span class="text-[8px] text-on-surface-variant/60">' + label + '</span>' +
+        '</div>';
+      }).join('');
+      document.getElementById('growth-chart').innerHTML = growthHtml;
+    } else {
+      document.getElementById('growth-chart').innerHTML = '<div class="text-sm text-on-surface-variant">No data yet</div>';
+    }
+
+    // Recent additions
+    var addHtml = '';
+    (s.recent_services || []).forEach(function(svc) {
+      var platformColors = { smithery: 'text-primary', github: 'text-secondary' };
+      var pColor = platformColors[svc.platform] || 'text-on-surface-variant';
+      var time = svc.created_at ? new Date(svc.created_at).toLocaleDateString() : '--';
+      addHtml += '<div class="px-6 py-3 flex items-center justify-between hover:bg-white/5 transition-colors">' +
+        '<div class="min-w-0">' +
+          '<p class="text-sm font-bold text-on-surface truncate">' + svc.name + '</p>' +
+          '<p class="text-[10px] ' + pColor + '">' + svc.platform + '</p>' +
+        '</div>' +
+        '<span class="text-[10px] text-on-surface-variant shrink-0 ml-2">' + time + '</span>' +
+      '</div>';
+    });
+    document.getElementById('recent-additions').innerHTML = addHtml || '<div class="px-8 py-8 text-center text-on-surface-variant text-sm">No services yet</div>';
 
     // Check endpoint health
     checkEndpoints();

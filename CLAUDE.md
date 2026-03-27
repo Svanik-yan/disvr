@@ -17,7 +17,7 @@ Agent 智能服务发现引擎，帮 AI Agent 找到最值得用的工具。
 ```bash
 # Development
 npx wrangler dev                    # Local dev server
-npx vitest run                      # Run all tests (65 tests)
+npx vitest run                      # Run all tests (68 tests)
 npx wrangler deploy                 # Deploy to production
 
 # Database
@@ -64,7 +64,7 @@ test/
 ├── discover.test.ts  # 12 tests
 ├── db.test.ts        # 14 tests
 ├── api.test.ts       # 24 tests
-└── crawl.test.ts     # 7 tests
+└── crawl.test.ts     # 10 tests
 ```
 
 ## Routes
@@ -102,7 +102,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 65 tests, ~170ms
+npx vitest run          # 68 tests, ~170ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.

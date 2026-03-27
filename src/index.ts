@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
 import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail } from "./db.js";
-import { crawlSmithery, embedAndIndex } from "./crawl.js";
+import { crawlSmithery, crawlAwesomeMcp, enrichGitHubStars, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
 import { landingPageHtml } from "./landing.js";
@@ -197,10 +197,35 @@ app.post("/api/register", async (c) => {
   });
 });
 
+// Admin auth middleware — requires ADMIN_KEY env var
+app.use("/admin/*", async (c, next) => {
+  const adminKey = (c.env as any).ADMIN_KEY;
+  if (adminKey) {
+    const authHeader = c.req.header("Authorization");
+    if (!authHeader?.startsWith("Bearer ") || authHeader.slice(7) !== adminKey) {
+      return c.json({ error: "unauthorized", message: "Admin access requires valid ADMIN_KEY." }, 401);
+    }
+  }
+  await next();
+});
+
 // Admin: trigger crawl manually
 app.post("/admin/crawl", async (c) => {
-  const count = await crawlSmithery(c.env);
-  return c.json({ status: "ok", services_crawled: count });
+  const source = c.req.query("source") || "all";
+  if (source === "smithery") {
+    const count = await crawlSmithery(c.env);
+    return c.json({ status: "ok", source: "smithery", services_crawled: count });
+  }
+  if (source === "github") {
+    const count = await crawlAwesomeMcp(c.env);
+    return c.json({ status: "ok", source: "github", services_crawled: count });
+  }
+  // Default: crawl all sources
+  const [smitheryCount, githubCount] = await Promise.all([
+    crawlSmithery(c.env),
+    crawlAwesomeMcp(c.env),
+  ]);
+  return c.json({ status: "ok", services_crawled: { smithery: smitheryCount, github: githubCount, total: smitheryCount + githubCount } });
 });
 
 // Admin: reindex existing services into Vectorize
@@ -211,6 +236,24 @@ app.post("/admin/reindex", async (c) => {
   }
   await embedAndIndex(c.env, services);
   return c.json({ status: "ok", services_indexed: services.length });
+});
+
+// Admin: rebuild FTS5 index
+app.post("/admin/rebuild-fts", async (c) => {
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM services_fts"),
+    c.env.DB.prepare(
+      "INSERT INTO services_fts(rowid, id, name, description, capabilities) SELECT rowid, id, name, description, capabilities FROM services"
+    ),
+  ]);
+  const count = await c.env.DB.prepare("SELECT count(*) as c FROM services_fts").first<{ c: number }>();
+  return c.json({ status: "ok", fts_entries: count?.c ?? 0 });
+});
+
+// Admin: enrich GitHub services with star counts
+app.post("/admin/enrich", async (c) => {
+  const count = await enrichGitHubStars(c.env);
+  return c.json({ status: "ok", services_enriched: count });
 });
 
 // MCP Server endpoint (Streamable HTTP via Durable Objects)
@@ -234,9 +277,18 @@ const worker = {
     ctx: ExecutionContext
   ): Promise<void> {
     ctx.waitUntil(
-      crawlSmithery(env).catch((error) => {
-        console.error("Scheduled crawl failed:", error);
-      })
+      Promise.all([
+        crawlSmithery(env).catch((error) => {
+          console.error("Scheduled Smithery crawl failed:", error);
+        }),
+        crawlAwesomeMcp(env).catch((error) => {
+          console.error("Scheduled GitHub crawl failed:", error);
+        }),
+      ]).then(() =>
+        enrichGitHubStars(env).catch((error) => {
+          console.error("Scheduled enrichment failed:", error);
+        })
+      )
     );
   },
 };
