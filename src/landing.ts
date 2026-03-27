@@ -6,8 +6,15 @@ export const landingPageHtml = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Disvr — The Intelligence Layer for the Agent Economy</title>
-<meta name="description" content="Disvr helps AI agents find the best tools at the best price. Spend intelligence, not just search. MCP Server + REST API."/>
+<title>Disvr — Your Agent's Tool Search Engine</title>
+<meta name="description" content="One API call. Any MCP server. No vendor lock-in. Disvr helps AI agents find the right tool from 900+ indexed services. Free REST API + MCP Server."/>
+<meta property="og:title" content="Disvr — Your Agent's Tool Search Engine"/>
+<meta property="og:description" content="One API call. Any MCP server. No vendor lock-in. 900+ services indexed from Smithery, GitHub, and more."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://www.disvr.top"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Disvr — Your Agent's Tool Search Engine"/>
+<meta name="twitter:description" content="One API call. Any MCP server. No vendor lock-in."/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -62,6 +69,13 @@ tailwind.config = {
 .text-glow {
   text-shadow: 0 0 20px rgba(183, 159, 255, 0.3);
 }
+.demo-result-enter {
+  animation: fadeSlideIn 0.2s ease-out both;
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 </style>
 </head>
 <body class="bg-background text-on-background font-body selection:bg-primary/30 antialiased overflow-x-hidden">
@@ -101,60 +115,62 @@ tailwind.config = {
       </div>
 
       <h1 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-none text-glow">
-        The Intelligence Layer for the <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Agent Economy</span>
+        Your agent's <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">tool search engine</span>
       </h1>
 
       <p class="text-on-surface-variant text-xl md:text-2xl max-w-2xl font-light leading-relaxed">
-        Payment protocols solve <em>how to pay</em>. Directories solve <em>what exists</em>. Disvr solves <strong class="text-on-surface">which tool is worth using</strong> &mdash; spend intelligence for AI agents.
+        One API call. Any MCP server. <strong class="text-on-surface">No vendor lock-in.</strong><br/>
+        <span class="text-base">Works with Claude, GPT, Gemini, LLaMA, and any LLM.</span>
       </p>
 
-      <div class="flex flex-wrap gap-6 pt-4">
-        <a href="/keys" class="ethereal-gradient text-on-primary-fixed px-10 py-4 rounded-full font-bold text-lg hover:shadow-[0_0_30px_rgba(183,159,255,0.4)] transition-all active:scale-95">
-          Get Free API Key
-        </a>
-        <a href="https://github.com/Svanik-yan/disvr" target="_blank" class="glass-card px-10 py-4 rounded-full font-bold text-lg text-on-surface hover:bg-white/10 transition-all border border-white/10">
-          View on GitHub
-        </a>
+      <!-- Live Demo Search -->
+      <div class="glass-card p-2 rounded-full max-w-xl w-full flex items-center mt-2 border border-white/10">
+        <div class="flex-1 flex items-center px-5">
+          <span class="material-symbols-outlined text-secondary mr-3">search</span>
+          <input id="hero-search" class="w-full bg-transparent border-none focus:ring-0 text-on-surface text-lg placeholder:text-on-surface-variant/40 py-3" placeholder="Try: I need a weather API..." type="text"/>
+        </div>
+        <button onclick="heroSearch()" class="shrink-0 ethereal-gradient text-on-primary-fixed font-bold px-8 py-3 rounded-full hover:shadow-[0_0_25px_rgba(98,250,227,0.3)] transition-all active:scale-95">
+          Discover
+        </button>
+      </div>
+      <div id="hero-results" class="hidden max-w-xl w-full mt-4 space-y-3"></div>
+      <div class="flex flex-wrap gap-4 pt-2">
+        <a href="/explorer" class="text-secondary text-sm hover:underline">Full Explorer with filters &rarr;</a>
+        <a href="/keys" class="text-on-surface-variant text-sm hover:underline">Get API Key</a>
+        <a href="https://github.com/Svanik-yan/disvr" target="_blank" class="text-on-surface-variant text-sm hover:underline">GitHub</a>
       </div>
     </div>
 
-    <!-- Stats Cards -->
-    <div class="lg:col-span-5 relative">
-      <div class="glass-card p-8 rounded-xl relative z-20 translate-x-4 -rotate-2">
+    <!-- Quick Stats -->
+    <div class="lg:col-span-5 space-y-6">
+      <div class="glass-card p-8 rounded-xl">
         <div class="flex items-center justify-between mb-6">
-          <span class="material-symbols-outlined text-secondary text-3xl">search</span>
-          <div class="px-3 py-1 bg-secondary/10 rounded-full text-secondary text-xs font-bold">LIVE QUERY</div>
+          <span class="material-symbols-outlined text-secondary text-3xl">terminal</span>
+          <div class="px-3 py-1 bg-secondary/10 rounded-full text-secondary text-xs font-bold">QUICK START</div>
         </div>
-        <div class="space-y-4">
-          <div class="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-            <div class="h-full bg-secondary w-3/4 shadow-[0_0_10px_rgba(98,250,227,0.5)]"></div>
-          </div>
-          <p class="font-headline font-bold text-xl">"translate Chinese contract to Thai"</p>
-          <p class="text-on-surface-variant text-sm">Top 3 ranked by cost_per_success, retry_rate, latency &rarr; best value wins.</p>
+        <div class="bg-surface-container-lowest rounded-lg p-5 font-mono text-sm leading-relaxed border border-white/5">
+          <p class="text-slate-500">// .mcp.json &mdash; one line to connect</p>
+          <p>{ <span class="text-primary">"mcpServers"</span>: {</p>
+          <p class="pl-2"><span class="text-primary">"disvr"</span>: {</p>
+          <p class="pl-4"><span class="text-primary">"type"</span>: <span class="text-secondary">"url"</span>,</p>
+          <p class="pl-4"><span class="text-primary">"url"</span>: <span class="text-secondary">"https://api.disvr.top/mcp"</span></p>
+          <p class="pl-2">}</p>
+          <p>}}</p>
         </div>
       </div>
-
-      <div class="absolute top-20 -left-10 glass-card p-6 rounded-xl z-10 -translate-x-8 translate-y-8 rotate-3 w-64">
-        <div class="flex items-center gap-3 mb-4">
-          <span class="material-symbols-outlined text-primary">speed</span>
-          <span class="font-bold">Value Score</span>
+      <div class="grid grid-cols-3 gap-4">
+        <div class="glass-card p-5 rounded-xl text-center">
+          <div class="text-2xl font-black text-primary" id="stat-services">...</div>
+          <div class="text-xs text-on-surface-variant mt-1">Services</div>
         </div>
-        <div class="text-3xl font-black text-primary">4-Dim</div>
-        <div class="text-xs text-on-surface-variant mt-2">Semantic + Quality + Cost + Reliability</div>
-      </div>
-
-      <div class="absolute -bottom-10 right-4 glass-card p-6 rounded-xl z-30 translate-y-4 -rotate-1 w-72">
-        <div class="flex items-center gap-3 mb-2">
-          <span class="material-symbols-outlined text-tertiary">loop</span>
-          <span class="font-bold">Closed-Loop Feedback</span>
+        <div class="glass-card p-5 rounded-xl text-center">
+          <div class="text-2xl font-black text-secondary">4-Dim</div>
+          <div class="text-xs text-on-surface-variant mt-1">Ranking</div>
         </div>
-        <div class="flex gap-1">
-          <div class="w-full h-1 bg-secondary rounded-full"></div>
-          <div class="w-full h-1 bg-secondary rounded-full"></div>
-          <div class="w-full h-1 bg-secondary rounded-full"></div>
-          <div class="w-full h-1 bg-white/10 rounded-full"></div>
+        <div class="glass-card p-5 rounded-xl text-center">
+          <div class="text-2xl font-black text-tertiary">Free</div>
+          <div class="text-xs text-on-surface-variant mt-1">1K req/day</div>
         </div>
-        <div class="text-xs text-on-surface-variant mt-2">Agents report results &rarr; scores improve over time</div>
       </div>
     </div>
   </div>
@@ -196,7 +212,7 @@ tailwind.config = {
           <div>
             <span class="material-symbols-outlined text-4xl text-secondary mb-6">cloud_sync</span>
             <h3 class="font-headline text-2xl font-bold mb-4">Multi-Source Crawling</h3>
-            <p class="text-on-surface-variant text-lg">Hourly Cron crawls pull from Smithery (16,000+ servers), with MCP Official Registry and more sources coming. Vector embeddings + FTS5 dual-path search ensures nothing is missed.</p>
+            <p class="text-on-surface-variant text-lg">Crawls Smithery and GitHub awesome-mcp-servers hourly. <span id="hero-count2">900+</span> services indexed and growing. Vector embeddings + FTS5 dual-path search ensures nothing is missed.</p>
           </div>
           <div class="hidden sm:block">
             <div class="w-48 h-48 rounded-full border-4 border-dashed border-white/10 flex items-center justify-center relative">
@@ -315,7 +331,7 @@ tailwind.config = {
   <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
     <div class="col-span-1 md:col-span-2">
       <div class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent mb-6 font-headline">Disvr</div>
-      <p class="text-on-surface-variant max-w-sm mb-8">The spend intelligence layer for the agent economy. Helping AI agents find the best tools at the best price.</p>
+      <p class="text-on-surface-variant max-w-sm mb-8">Your agent's tool search engine. One API call to find any tool it needs. Cross-platform, no vendor lock-in.</p>
       <div class="flex gap-4">
         <a class="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:bg-primary/20 transition-colors" href="https://github.com/Svanik-yan/disvr" target="_blank" title="GitHub">
           <span class="material-symbols-outlined text-sm">terminal</span>
@@ -354,11 +370,57 @@ tailwind.config = {
 
 <script>
 fetch('/health').then(r=>r.json()).then(d=>{
-  const el=document.getElementById('hero-count');
-  if(el&&d.services_indexed) el.textContent=d.services_indexed+'+';
+  if(d.services_indexed){
+    const el=document.getElementById('hero-count');if(el)el.textContent=d.services_indexed+'+';
+    const el2=document.getElementById('hero-count2');if(el2)el2.textContent=d.services_indexed+'+';
+    const el3=document.getElementById('stat-services');if(el3)el3.textContent=d.services_indexed+'+';
+  }
 }).catch(()=>{
-  const el=document.getElementById('hero-count');
-  if(el) el.textContent='390+';
+  const fallback='900+';
+  ['hero-count','hero-count2','stat-services'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=fallback;});
+});
+
+// Live Demo Search
+let searchTimer=null;
+const heroInput=document.getElementById('hero-search');
+const heroResults=document.getElementById('hero-results');
+
+function heroSearch(){
+  const q=(heroInput?.value||'').trim();
+  if(!q||q.length<2){heroResults.classList.add('hidden');heroResults.innerHTML='';return;}
+  heroResults.innerHTML='<div class="text-on-surface-variant text-sm animate-pulse">Searching...</div>';
+  heroResults.classList.remove('hidden');
+  fetch('/api/services?search='+encodeURIComponent(q)+'&limit=5')
+    .then(r=>r.json())
+    .then(d=>{
+      if(!d.services||d.services.length===0){
+        heroResults.innerHTML='<div class="glass-card p-4 rounded-xl text-on-surface-variant text-sm">No services found. Try a different keyword.</div>';
+        return;
+      }
+      heroResults.innerHTML=d.services.map((s,i)=>\`
+        <div class="glass-card p-4 rounded-xl demo-result-enter" style="animation-delay:\${i*60}ms">
+          <div class="flex items-center justify-between mb-1">
+            <span class="font-headline font-bold text-on-surface">\${esc(s.name)}</span>
+            \${s.reputation_score!=null?'<span class="text-xs px-2 py-0.5 rounded-full bg-primary/15 text-primary font-bold">'+s.reputation_score.toFixed(1)+'</span>':''}
+          </div>
+          <p class="text-on-surface-variant text-sm line-clamp-2">\${esc((s.description||'').slice(0,120))}</p>
+          <div class="flex gap-3 mt-2 text-xs text-on-surface-variant/60">
+            \${s.platform?'<span>'+esc(s.platform)+'</span>':''}
+            \${s.total_calls?'<span>'+s.total_calls+' calls</span>':''}
+          </div>
+        </div>
+      \`).join('')+'<div class="text-center pt-2"><a href="/explorer" class="text-secondary text-sm hover:underline">See all '+d.total+' results in Explorer &rarr;</a></div>';
+    })
+    .catch(()=>{
+      heroResults.innerHTML='<div class="glass-card p-4 rounded-xl text-on-surface-variant text-sm">Search failed. Try again.</div>';
+    });
+}
+function esc(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+
+heroInput?.addEventListener('keydown',function(e){if(e.key==='Enter')heroSearch();});
+heroInput?.addEventListener('input',function(){
+  clearTimeout(searchTimer);
+  searchTimer=setTimeout(heroSearch,400);
 });
 </script>
 </body>
