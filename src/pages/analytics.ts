@@ -215,6 +215,46 @@ tailwind.config = {
     </div>
   </div>
 
+  <!-- API Usage (from /api/analytics) -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+    <!-- Daily API Calls -->
+    <div class="glass-card rounded-xl p-8">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h2 class="text-xl font-headline font-bold">API Usage</h2>
+          <p class="text-xs text-on-surface-variant">Daily /discover calls (last 7 days)</p>
+        </div>
+        <div class="text-right">
+          <div class="text-2xl font-headline font-extrabold text-secondary" id="usage-total">--</div>
+          <div class="text-[10px] text-on-surface-variant">total calls</div>
+        </div>
+      </div>
+      <div id="usage-chart" class="h-40 flex items-end gap-2">
+        <div class="text-sm text-on-surface-variant w-full text-center py-12">Loading...</div>
+      </div>
+      <div class="flex justify-between mt-2 text-[10px] text-on-surface-variant" id="usage-labels"></div>
+    </div>
+
+    <!-- Top Queries -->
+    <div class="glass-card rounded-xl overflow-hidden">
+      <div class="px-8 py-5 border-b border-white/5">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-headline font-bold">Top Queries</h2>
+            <p class="text-xs text-on-surface-variant">Most searched terms (7 days)</p>
+          </div>
+          <div class="text-right">
+            <div class="text-lg font-headline font-bold text-primary" id="usage-keys">--</div>
+            <div class="text-[10px] text-on-surface-variant">unique keys</div>
+          </div>
+        </div>
+      </div>
+      <div id="top-queries" class="divide-y divide-white/5">
+        <div class="px-8 py-8 text-center text-on-surface-variant text-sm">Loading...</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Bottom Row -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
     <!-- Top Services -->
@@ -371,6 +411,61 @@ async function loadStats() {
   }
 }
 
+async function loadAnalytics() {
+  try {
+    var res = await fetch(API + '/api/analytics?days=7');
+    var a = await res.json();
+
+    // Total calls & unique keys
+    document.getElementById('usage-total').textContent = a.total_calls;
+    document.getElementById('usage-keys').textContent = a.total_unique_keys;
+
+    // Daily bar chart (reverse to show oldest→newest left→right)
+    var daily = (a.daily || []).slice().reverse();
+    var maxCalls = Math.max(1, ...daily.map(function(d) { return d.calls; }));
+    var chartHtml = '';
+    var labelsHtml = '';
+
+    // Fill in missing days for the last 7 days
+    var days7 = [];
+    for (var i = 6; i >= 0; i--) {
+      var d = new Date();
+      d.setDate(d.getDate() - i);
+      var dateStr = d.toISOString().split('T')[0];
+      var found = daily.find(function(x) { return x.date === dateStr; });
+      days7.push({ date: dateStr, calls: found ? found.calls : 0, unique_keys: found ? found.unique_keys : 0 });
+    }
+
+    days7.forEach(function(d) {
+      var pct = Math.max(4, Math.round(d.calls / maxCalls * 100));
+      var label = d.date.slice(5); // MM-DD
+      chartHtml += '<div class="flex-1 flex flex-col items-center gap-1">' +
+        '<span class="text-[10px] text-on-surface-variant">' + d.calls + '</span>' +
+        '<div class="w-full bg-gradient-to-t from-secondary/30 to-secondary/70 rounded-t-lg transition-all" style="height: ' + pct + '%"></div>' +
+      '</div>';
+      labelsHtml += '<span>' + label + '</span>';
+    });
+
+    document.getElementById('usage-chart').innerHTML = chartHtml || '<div class="text-sm text-on-surface-variant w-full text-center py-12">No API calls yet</div>';
+    document.getElementById('usage-labels').innerHTML = labelsHtml;
+
+    // Top queries
+    var qHtml = '';
+    (a.top_queries || []).slice(0, 10).forEach(function(q, i) {
+      qHtml += '<div class="px-8 py-3 flex items-center justify-between hover:bg-white/5 transition-colors">' +
+        '<div class="flex items-center gap-3">' +
+          '<span class="text-xs font-bold text-on-surface-variant w-5">' + (i + 1) + '</span>' +
+          '<span class="text-sm text-on-surface">' + q.query + '</span>' +
+        '</div>' +
+        '<span class="text-xs font-mono font-bold text-primary">' + q.count + '</span>' +
+      '</div>';
+    });
+    document.getElementById('top-queries').innerHTML = qHtml || '<div class="px-8 py-8 text-center text-on-surface-variant text-sm">No queries yet. Data appears after agents call POST /discover.</div>';
+  } catch (e) {
+    document.getElementById('usage-total').textContent = 'Error';
+  }
+}
+
 async function checkEndpoints() {
   try {
     var res = await fetch(API + '/health');
@@ -387,5 +482,6 @@ async function checkEndpoints() {
 }
 
 loadStats();
+loadAnalytics();
 </script>
 </body></html>`;

@@ -156,6 +156,177 @@ function calculateDocCompleteness(server: SmitheryServer): number {
   return score;
 }
 
+// ─── MCP Official Registry Crawler ───
+
+const MCP_REGISTRY_API = "https://registry.modelcontextprotocol.io/v0.1/servers";
+const MCP_REGISTRY_PAGE_SIZE = 100;
+const MCP_REGISTRY_MAX_PAGES = 10; // Up to 1000 servers per run
+
+interface McpRegistryServer {
+  server: {
+    name: string;
+    description?: string;
+    version?: string;
+    packages?: Array<{
+      type: string;
+      registry?: string;
+      requirements?: string;
+    }>;
+  };
+  _meta: {
+    status: string;
+    publishedAt?: string;
+    updatedAt?: string;
+    isLatest?: boolean;
+  };
+}
+
+interface McpRegistryResponse {
+  servers: McpRegistryServer[];
+  metadata: {
+    nextCursor: string | null;
+    count: number;
+  };
+}
+
+export async function crawlMcpRegistry(env: Env): Promise<number> {
+  const allServices: Service[] = [];
+  let cursor: string | null = null;
+  let pages = 0;
+
+  while (pages < MCP_REGISTRY_MAX_PAGES) {
+    try {
+      let url = `${MCP_REGISTRY_API}?limit=${MCP_REGISTRY_PAGE_SIZE}&version=latest`;
+      if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+
+      const response = await fetch(url, {
+        headers: { Accept: "application/json", "User-Agent": "disvr-crawler/1.0" },
+      });
+
+      if (!response.ok) {
+        console.error(`MCP Registry API error: ${response.status} ${response.statusText}`);
+        break;
+      }
+
+      const data = (await response.json()) as McpRegistryResponse;
+
+      if (!data.servers || data.servers.length === 0) break;
+
+      for (const entry of data.servers) {
+        if (entry._meta.status === "deleted") continue;
+        allServices.push(mcpRegistryToService(entry));
+      }
+
+      pages++;
+      cursor = data.metadata.nextCursor;
+      if (!cursor) break;
+    } catch (error) {
+      console.error(`MCP Registry crawl page ${pages + 1} failed:`, error);
+      break;
+    }
+  }
+
+  if (allServices.length === 0) return 0;
+
+  // Batch upsert
+  const BATCH_SIZE = 50;
+  let totalUpserted = 0;
+
+  for (let i = 0; i < allServices.length; i += BATCH_SIZE) {
+    const batch = allServices.slice(i, i + BATCH_SIZE);
+    try {
+      const statements = batch.map((service) =>
+        env.DB.prepare(
+          `INSERT INTO services (id, name, description, capabilities, platform, protocols, pricing,
+            reputation_score, success_rate, uptime_30d, latency_p95_ms, total_calls,
+            successful_calls, failed_calls, retry_rate, avg_cost_per_success,
+            doc_completeness, verified, source_url, last_health_check, updated_at)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, datetime('now'))
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name, description = excluded.description,
+            capabilities = excluded.capabilities, protocols = excluded.protocols,
+            pricing = excluded.pricing, doc_completeness = excluded.doc_completeness,
+            verified = excluded.verified, source_url = excluded.source_url,
+            updated_at = datetime('now')`
+        ).bind(
+          service.id, service.name, service.description,
+          JSON.stringify(service.capabilities), service.platform,
+          JSON.stringify(service.protocols), JSON.stringify(service.pricing),
+          service.reputation_score, service.success_rate, service.uptime_30d,
+          service.latency_p95_ms, service.total_calls, service.successful_calls,
+          service.failed_calls, service.retry_rate, service.avg_cost_per_success,
+          service.doc_completeness, service.verified ? 1 : 0,
+          service.source_url, null
+        )
+      );
+      await env.DB.batch(statements);
+      totalUpserted += batch.length;
+    } catch (error) {
+      console.error(`MCP Registry batch upsert failed at offset ${i}:`, error);
+    }
+  }
+
+  // Embed new services
+  if (allServices.length > 0) {
+    try {
+      await embedAndIndex(env, allServices);
+    } catch (error) {
+      console.error("MCP Registry embedding failed:", error);
+    }
+  }
+
+  console.log(`MCP Registry crawl complete: ${totalUpserted} services upserted`);
+  return totalUpserted;
+}
+
+function mcpRegistryToService(entry: McpRegistryServer): Service {
+  const name = entry.server.name;
+  const slug = name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
+  const desc = entry.server.description || "";
+  const caps = extractCapsFromDescription(desc);
+
+  // Determine package type for protocols
+  const protocols: Record<string, string> = {};
+  if (entry.server.packages) {
+    for (const pkg of entry.server.packages) {
+      if (pkg.type === "npm") {
+        protocols.npm = pkg.registry || name;
+      } else if (pkg.type === "python") {
+        protocols.python = pkg.registry || name;
+      } else if (pkg.type === "docker") {
+        protocols.docker = pkg.registry || name;
+      }
+    }
+  }
+  protocols.mcp = `https://registry.modelcontextprotocol.io/v0.1/servers/${encodeURIComponent(name)}`;
+
+  const hasDescription = desc.length > 20;
+  const hasPackages = (entry.server.packages?.length ?? 0) > 0;
+  const docCompleteness = (hasDescription ? 0.4 : 0.1) + (hasPackages ? 0.3 : 0) + (entry.server.version ? 0.2 : 0) + 0.1;
+
+  return {
+    id: `mcpreg-${slug}`,
+    name,
+    description: desc,
+    capabilities: [...new Set(caps)],
+    platform: "mcp_registry",
+    protocols,
+    pricing: { model: "free", price_usd: 0 },
+    reputation_score: 3.5, // Official registry = baseline credibility
+    success_rate: null,
+    uptime_30d: null,
+    latency_p95_ms: null,
+    total_calls: 0,
+    successful_calls: 0,
+    failed_calls: 0,
+    retry_rate: null,
+    avg_cost_per_success: null,
+    doc_completeness: Math.min(1, docCompleteness),
+    verified: true, // Listed in official registry
+    source_url: `https://registry.modelcontextprotocol.io/v0.1/servers/${encodeURIComponent(name)}`,
+  };
+}
+
 // ─── GitHub Awesome MCP Servers Crawler ───
 
 const AWESOME_REPOS = [

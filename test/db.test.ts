@@ -330,6 +330,40 @@ describe("getRequestStats", () => {
   });
 });
 
+// ─── aggregateDailyStats ───
+
+describe("aggregateDailyStats", () => {
+  it("aggregates yesterday's data and upserts into daily_stats", async () => {
+    let callIdx = 0;
+    const results = [
+      { calls: 25, unique_keys: 3 },   // request_logs counts
+      { count: 5 },                      // call_reports count
+      { count: 2 },                      // new api_keys count
+      { results: [{ query: "translate", count: 10 }] }, // top queries
+      {},                                 // INSERT run result
+    ];
+
+    const mockPrepare = vi.fn().mockImplementation(() => {
+      const idx = callIdx++;
+      return {
+        bind: vi.fn().mockReturnValue({
+          first: vi.fn().mockResolvedValue(idx < 3 ? results[idx] : undefined),
+          all: vi.fn().mockResolvedValue(idx === 3 ? results[idx] : undefined),
+          run: vi.fn().mockResolvedValue(idx === 4 ? results[idx] : undefined),
+        }),
+      };
+    });
+
+    const db = { prepare: mockPrepare } as unknown as D1Database;
+    const { aggregateDailyStats } = await import("../src/db.js");
+    const count = await aggregateDailyStats(db);
+
+    expect(count).toBe(1);
+    // 4 SELECT queries + 1 INSERT = 5 prepare calls
+    expect(mockPrepare).toHaveBeenCalledTimes(5);
+  });
+});
+
 // ─── computeReputation ───
 
 describe("computeReputation", () => {
