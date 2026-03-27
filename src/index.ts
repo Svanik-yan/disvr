@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
-import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats } from "./db.js";
+import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats } from "./db.js";
 import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
@@ -340,6 +340,8 @@ const worker = {
         await enrichGitHubStars(env).catch((err) => console.error("GitHub stars enrichment failed:", err));
         // Phase 3: run health checks
         await runHealthChecks(env).catch((err) => console.error("Health checks failed:", err));
+        // Phase 4: aggregate daily stats (idempotent — safe to run every hour)
+        await aggregateDailyStats(env.DB).catch((err) => console.error("Daily stats aggregation failed:", err));
       })()
     );
   },

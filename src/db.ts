@@ -395,8 +395,6 @@ export async function getServicesPaginated(
   };
 }
 
-// ─── Public API: Aggregated Stats ───
-
 // ─── Request Logging ───
 
 export async function logRequest(
@@ -474,6 +472,51 @@ export async function getRequestStats(
     total_calls: totalsRes?.total_calls ?? 0,
     total_unique_keys: totalsRes?.total_unique_keys ?? 0,
   };
+}
+
+// ─── Daily Stats Aggregation ───
+
+export async function aggregateDailyStats(db: D1Database): Promise<number> {
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  const dateStr = yesterday.toISOString().split("T")[0];
+
+  const [callsRes, reportsRes, keysRes, queriesRes] = await Promise.all([
+    db.prepare(
+      `SELECT COUNT(*) as calls, COUNT(DISTINCT api_key_hash) as unique_keys
+       FROM request_logs WHERE date(created_at) = ?1`
+    ).bind(dateStr).first<{ calls: number; unique_keys: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as count FROM call_reports WHERE date(created_at) = ?1`
+    ).bind(dateStr).first<{ count: number }>(),
+    db.prepare(
+      `SELECT COUNT(*) as count FROM api_keys WHERE date(created_at) = ?1`
+    ).bind(dateStr).first<{ count: number }>(),
+    db.prepare(
+      `SELECT query, COUNT(*) as count FROM request_logs
+       WHERE date(created_at) = ?1 GROUP BY query ORDER BY count DESC LIMIT 10`
+    ).bind(dateStr).all<{ query: string; count: number }>(),
+  ]);
+
+  await db.prepare(
+    `INSERT INTO daily_stats (date, discover_calls, unique_keys, reports_count, new_keys, top_queries)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+     ON CONFLICT(date) DO UPDATE SET
+       discover_calls = excluded.discover_calls,
+       unique_keys = excluded.unique_keys,
+       reports_count = excluded.reports_count,
+       new_keys = excluded.new_keys,
+       top_queries = excluded.top_queries`
+  ).bind(
+    dateStr,
+    callsRes?.calls ?? 0,
+    callsRes?.unique_keys ?? 0,
+    reportsRes?.count ?? 0,
+    keysRes?.count ?? 0,
+    JSON.stringify(queriesRes.results ?? [])
+  ).run();
+
+  return 1;
 }
 
 // ─── Public API: Aggregated Stats ───
