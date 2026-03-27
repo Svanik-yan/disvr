@@ -1,5 +1,5 @@
 {
-  "name": "disvr",
+  "name": "@sylar_yan/disvr",
   "version": "0.1.0",
   "description": "Official SDK for Disvr — tool search engine for AI agents",
   "main": "dist/index.js",

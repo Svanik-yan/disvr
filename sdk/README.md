@@ -7,13 +7,13 @@ One API call, your agent finds any tool it needs.
 ## Install
 
 ```bash
-npm install disvr
+npm install @sylar_yan/disvr
 ```
 
 ## Quick Start
 
 ```typescript
-import { Disvr } from "disvr";
+import { Disvr } from "@sylar_yan/disvr";
 
 const client = new Disvr({ apiKey: "dsvr_your_key_here" });
 
@@ -99,7 +99,7 @@ Check API status.
 ## Error Handling
 
 ```typescript
-import { Disvr, DisvrError } from "disvr";
+import { Disvr, DisvrError } from "@sylar_yan/disvr";
 
 try {
   await client.discover({ need: "..." });
