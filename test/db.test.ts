@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getRateLimit } from "../src/db.js";
+import { getRateLimit, computeReputation } from "../src/db.js";
 
 // ─── getRateLimit (pure function, no DB dependency) ───
 
@@ -269,5 +269,75 @@ describe("getSystemStats", () => {
     expect(stats.platforms).toHaveLength(1);
     expect(stats.top_services).toHaveLength(1);
     expect(stats.recent_reports).toHaveLength(1);
+  });
+});
+
+// ─── computeReputation ───
+
+describe("computeReputation", () => {
+  it("returns high score for perfect metrics", () => {
+    const score = computeReputation({
+      successRate: 1.0,
+      retryRate: 0,
+      volume: 10000,
+      uptime: 1.0,
+      docCompleteness: 1.0,
+    });
+    expect(score).toBeGreaterThanOrEqual(4.5);
+    expect(score).toBeLessThanOrEqual(5.0);
+  });
+
+  it("returns low score for poor metrics", () => {
+    const score = computeReputation({
+      successRate: 0.2,
+      retryRate: 0.8,
+      volume: 5,
+      uptime: 0.3,
+      docCompleteness: 0.1,
+    });
+    expect(score).toBeLessThan(2.0);
+  });
+
+  it("handles null uptime and doc gracefully", () => {
+    const score = computeReputation({
+      successRate: 0.9,
+      retryRate: 0.1,
+      volume: 100,
+      uptime: null,
+      docCompleteness: null,
+    });
+    // Should use neutral defaults (2.5/5) for missing signals
+    expect(score).toBeGreaterThan(2.5);
+    expect(score).toBeLessThan(4.5);
+  });
+
+  it("clamps output to 0-5 range", () => {
+    const high = computeReputation({
+      successRate: 1.0,
+      retryRate: 0,
+      volume: 1000000,
+      uptime: 1.0,
+      docCompleteness: 1.0,
+    });
+    expect(high).toBeLessThanOrEqual(5.0);
+
+    const low = computeReputation({
+      successRate: 0,
+      retryRate: 1.0,
+      volume: 0,
+      uptime: 0,
+      docCompleteness: 0,
+    });
+    expect(low).toBeGreaterThanOrEqual(0);
+  });
+
+  it("volume has logarithmic diminishing returns", () => {
+    const low = computeReputation({ successRate: 0.8, retryRate: 0.1, volume: 10, uptime: null, docCompleteness: null });
+    const mid = computeReputation({ successRate: 0.8, retryRate: 0.1, volume: 100, uptime: null, docCompleteness: null });
+    const high = computeReputation({ successRate: 0.8, retryRate: 0.1, volume: 500, uptime: null, docCompleteness: null });
+    expect(mid).toBeGreaterThan(low);
+    expect(high).toBeGreaterThan(mid);
+    // Diminishing returns: gap between mid→high < gap between low→mid
+    expect(high - mid).toBeLessThan(mid - low);
   });
 });
