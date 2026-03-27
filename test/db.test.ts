@@ -272,6 +272,64 @@ describe("getSystemStats", () => {
   });
 });
 
+// ─── logRequest ───
+
+describe("logRequest", () => {
+  it("inserts a request log entry", async () => {
+    const { db, mockRun, mockPrepare } = createMockDB();
+    mockRun.mockResolvedValue({});
+
+    const { logRequest } = await import("../src/db.js");
+    await logRequest(db, {
+      api_key_hash: "abc123",
+      query: "translate Chinese to Thai",
+      results_count: 3,
+      latency_ms: 150,
+      referer: null,
+      user_agent: "disvr-sdk/0.1.0",
+    });
+
+    expect(mockPrepare).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO request_logs")
+    );
+  });
+});
+
+// ─── getRequestStats ───
+
+describe("getRequestStats", () => {
+  it("returns stats structure", async () => {
+    let callIdx = 0;
+    const results = [
+      { results: [{ date: "2026-03-27", calls: 10, unique_keys: 2 }] },
+      { results: [{ query: "translate", count: 5 }] },
+      { total_calls: 10, total_unique_keys: 2 },
+    ];
+
+    const mockPrepare = vi.fn().mockImplementation(() => {
+      const idx = callIdx++;
+      return {
+        bind: vi.fn().mockReturnValue({
+          all: vi.fn().mockResolvedValue(idx < 2 ? results[idx] : undefined),
+          first: vi.fn().mockResolvedValue(idx === 2 ? results[idx] : undefined),
+        }),
+      };
+    });
+
+    const db = { prepare: mockPrepare } as unknown as D1Database;
+    const { getRequestStats } = await import("../src/db.js");
+    const stats = await getRequestStats(db, 7);
+
+    expect(stats).toHaveProperty("daily");
+    expect(stats).toHaveProperty("top_queries");
+    expect(stats).toHaveProperty("total_calls");
+    expect(stats).toHaveProperty("total_unique_keys");
+    expect(stats.total_calls).toBe(10);
+    expect(stats.daily).toHaveLength(1);
+    expect(stats.top_queries).toHaveLength(1);
+  });
+});
+
 // ─── computeReputation ───
 
 describe("computeReputation", () => {

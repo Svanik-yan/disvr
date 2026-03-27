@@ -397,6 +397,87 @@ export async function getServicesPaginated(
 
 // ─── Public API: Aggregated Stats ───
 
+// ─── Request Logging ───
+
+export async function logRequest(
+  db: D1Database,
+  log: {
+    api_key_hash: string;
+    query: string;
+    results_count: number;
+    latency_ms: number;
+    referer: string | null;
+    user_agent: string | null;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      "INSERT INTO request_logs (api_key_hash, query, results_count, latency_ms, referer, user_agent) VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+    )
+    .bind(
+      log.api_key_hash,
+      log.query,
+      log.results_count,
+      log.latency_ms,
+      log.referer,
+      log.user_agent
+    )
+    .run();
+}
+
+// ─── Analytics Queries ───
+
+export async function getRequestStats(
+  db: D1Database,
+  days: number = 7
+): Promise<{
+  daily: { date: string; calls: number; unique_keys: number }[];
+  top_queries: { query: string; count: number }[];
+  total_calls: number;
+  total_unique_keys: number;
+}> {
+  const [dailyRes, queriesRes, totalsRes] = await Promise.all([
+    db
+      .prepare(
+        `SELECT date(created_at) as date, COUNT(*) as calls, COUNT(DISTINCT api_key_hash) as unique_keys
+         FROM request_logs
+         WHERE created_at >= datetime('now', '-' || ?1 || ' days')
+         GROUP BY date(created_at)
+         ORDER BY date DESC`
+      )
+      .bind(days)
+      .all<{ date: string; calls: number; unique_keys: number }>(),
+    db
+      .prepare(
+        `SELECT query, COUNT(*) as count
+         FROM request_logs
+         WHERE created_at >= datetime('now', '-' || ?1 || ' days')
+         GROUP BY query
+         ORDER BY count DESC
+         LIMIT 20`
+      )
+      .bind(days)
+      .all<{ query: string; count: number }>(),
+    db
+      .prepare(
+        `SELECT COUNT(*) as total_calls, COUNT(DISTINCT api_key_hash) as total_unique_keys
+         FROM request_logs
+         WHERE created_at >= datetime('now', '-' || ?1 || ' days')`
+      )
+      .bind(days)
+      .first<{ total_calls: number; total_unique_keys: number }>(),
+  ]);
+
+  return {
+    daily: dailyRes.results ?? [],
+    top_queries: queriesRes.results ?? [],
+    total_calls: totalsRes?.total_calls ?? 0,
+    total_unique_keys: totalsRes?.total_unique_keys ?? 0,
+  };
+}
+
+// ─── Public API: Aggregated Stats ───
+
 export async function getSystemStats(db: D1Database): Promise<{
   total_services: number;
   total_reports: number;
