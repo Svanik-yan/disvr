@@ -4,6 +4,7 @@ import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
 import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats, getServiceDetail } from "./db.js";
 import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
+import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
@@ -345,6 +346,25 @@ app.post("/admin/enrich", async (c) => {
   return c.json({ status: "ok", services_enriched: count });
 });
 
+// Admin: enrich services with README-extracted metadata (install, env vars, tools)
+app.post("/admin/enrich-readme", async (c) => {
+  let body: { limit?: number; force?: boolean } = {};
+  try {
+    body = await c.req.json();
+  } catch {
+    // use defaults
+  }
+  const limit = Math.min(Number(body.limit) || 20, 50);
+  const forceRefresh = body.force === true;
+
+  const result = await enrichServices(c.env.DB, c.env.OPENAI_API_KEY, {
+    limit,
+    forceRefresh,
+  });
+
+  return c.json(result);
+});
+
 // Admin: run health checks
 app.post("/admin/health-check", async (c) => {
   const count = await runHealthChecks(c.env);
@@ -385,6 +405,13 @@ const worker = {
         await runHealthChecks(env).catch((err) => console.error("Health checks failed:", err));
         // Phase 4: aggregate daily stats + passive signals (idempotent — safe to run every hour)
         await runSignalAggregation(env.DB).catch((err) => console.error("Signal aggregation failed:", err));
+        // Phase 5: auto-enrich README metadata at UTC 1:00 (30 services/day)
+        const hour = new Date().getUTCHours();
+        if (hour === 1) {
+          await enrichServices(env.DB, env.OPENAI_API_KEY, { limit: 30 })
+            .then((r) => console.log(`Enrich result: ${r.enriched} enriched, ${r.skipped} skipped`))
+            .catch((err) => console.error("README enrichment failed:", err));
+        }
       })()
     );
   },
