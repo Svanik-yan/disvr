@@ -75,13 +75,19 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
       Try the Disvr discovery API live. Describe what your agent needs and see the top 3 ranked recommendations instantly.
     </p>
     <!-- API Key Input -->
-    <div class="glass-panel px-6 py-3 rounded-xl gradient-border mb-4 flex items-center gap-3">
+    <div id="key-bar" class="glass-panel px-6 py-3 rounded-xl gradient-border mb-4 flex items-center gap-3">
       <span class="material-symbols-outlined text-primary text-xl">key</span>
       <input id="api-key-input" type="password" class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface text-sm placeholder:text-on-surface-variant/40 py-1 font-mono" placeholder="Paste your API key (dsvr_...)"/>
       <button onclick="toggleKeyVisibility()" class="text-on-surface-variant hover:text-on-surface transition-colors"><span id="eye-icon" class="material-symbols-outlined text-lg">visibility_off</span></button>
       <span id="key-status" class="text-xs text-on-surface-variant"></span>
     </div>
-    <p class="text-xs text-on-surface-variant/60 mb-6">Don't have a key? <a href="/keys" class="text-secondary hover:underline">Get one for free</a></p>
+    <!-- Inline quick register (shown when no key) -->
+    <div id="quick-register" class="glass-panel px-6 py-3 rounded-xl gradient-border mb-4 flex items-center gap-3">
+      <span class="material-symbols-outlined text-secondary text-xl">mail</span>
+      <input id="quick-email" type="email" class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface text-sm placeholder:text-on-surface-variant/40 py-1" placeholder="Enter email to get a free API key instantly"/>
+      <button onclick="quickRegister()" id="quick-reg-btn" class="shrink-0 px-4 py-1.5 rounded-lg bg-secondary/20 text-secondary text-sm font-medium hover:bg-secondary/30 transition-colors">Get Key</button>
+    </div>
+    <p id="key-hint" class="text-xs text-on-surface-variant/60 mb-6">Already have a key? Paste it above. Or enter your email to generate one instantly.</p>
     <div class="glass-panel p-2 rounded-[2.5rem] gradient-border shadow-2xl flex items-center">
       <div class="flex-1 flex items-center px-6">
         <span class="material-symbols-outlined text-secondary mr-4">search</span>
@@ -234,7 +240,21 @@ fetch('/health').then(r => r.json()).then(d => {
 const keyInput = document.getElementById('api-key-input');
 const keyStatus = document.getElementById('key-status');
 const savedKey = localStorage.getItem('disvr_api_key');
-if (savedKey) { keyInput.value = savedKey; keyStatus.textContent = 'Saved'; keyStatus.className = 'text-xs text-secondary'; }
+
+function updateKeyUI() {
+  const hasKey = !!(keyInput.value.trim() || localStorage.getItem('disvr_api_key'));
+  document.getElementById('quick-register').style.display = hasKey ? 'none' : 'flex';
+  document.getElementById('key-hint').textContent = hasKey
+    ? 'Key saved in browser. Ready to search.'
+    : 'Already have a key? Paste it above. Or enter your email to generate one instantly.';
+}
+
+if (savedKey) {
+  keyInput.value = savedKey;
+  keyStatus.textContent = 'Saved';
+  keyStatus.className = 'text-xs text-secondary';
+}
+updateKeyUI();
 
 keyInput.addEventListener('input', function() {
   const k = keyInput.value.trim();
@@ -249,12 +269,39 @@ keyInput.addEventListener('input', function() {
     keyStatus.textContent = 'Invalid format';
     keyStatus.className = 'text-xs text-error';
   }
+  updateKeyUI();
 });
 
 function toggleKeyVisibility() {
   const isHidden = keyInput.type === 'password';
   keyInput.type = isHidden ? 'text' : 'password';
   document.getElementById('eye-icon').textContent = isHidden ? 'visibility' : 'visibility_off';
+}
+
+async function quickRegister() {
+  const email = document.getElementById('quick-email').value.trim();
+  if (!email || !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) { alert('Please enter a valid email.'); return; }
+  const btn = document.getElementById('quick-reg-btn');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const res = await fetch('/api/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.message || 'Registration failed.'); btn.disabled = false; btn.textContent = 'Get Key'; return; }
+    keyInput.value = data.api_key;
+    keyInput.type = 'text';
+    document.getElementById('eye-icon').textContent = 'visibility';
+    localStorage.setItem('disvr_api_key', data.api_key);
+    keyStatus.textContent = 'New key created!';
+    keyStatus.className = 'text-xs text-secondary';
+    updateKeyUI();
+  } catch (e) {
+    alert('Network error. Please try again.');
+    btn.disabled = false; btn.textContent = 'Get Key';
+  }
 }
 
 function tryQuery(q) {

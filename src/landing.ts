@@ -97,7 +97,7 @@ tailwind.config = {
     <div class="lg:col-span-7 space-y-8">
       <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card text-secondary font-medium text-sm tracking-widest uppercase">
         <span class="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>
-        Live &middot; 330+ Services Indexed
+        Live &middot; <span id="hero-count">...</span> Services Indexed
       </div>
 
       <h1 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-none text-glow">
@@ -352,5 +352,14 @@ tailwind.config = {
   </div>
 </footer>
 
+<script>
+fetch('/health').then(r=>r.json()).then(d=>{
+  const el=document.getElementById('hero-count');
+  if(el&&d.services_indexed) el.textContent=d.services_indexed+'+';
+}).catch(()=>{
+  const el=document.getElementById('hero-count');
+  if(el) el.textContent='390+';
+});
+</script>
 </body>
 </html>`;
