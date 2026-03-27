@@ -156,6 +156,322 @@ function calculateDocCompleteness(server: SmitheryServer): number {
   return score;
 }
 
+// ─── GitHub Awesome MCP Servers Crawler ───
+
+const AWESOME_REPOS = [
+  {
+    url: "https://raw.githubusercontent.com/appcypher/awesome-mcp-servers/main/README.md",
+    parseEntry: parseAppcypherEntry,
+  },
+  {
+    url: "https://raw.githubusercontent.com/wong2/awesome-mcp-servers/main/README.md",
+    parseEntry: parseWong2Entry,
+  },
+];
+
+interface ParsedEntry {
+  name: string;
+  url: string;
+  description: string;
+  category: string;
+  isOfficial: boolean;
+}
+
+/** Parse appcypher format: `- <img ...> [Name](url) - Description` */
+function parseAppcypherEntry(
+  line: string,
+  currentCategory: string
+): ParsedEntry | null {
+  // Match: - <img...> [Name](url)<sup>...</sup> - Description
+  // or:   - <img...> [Name](url) - Description
+  const match = line.match(
+    /^\- (?:<img[^>]*>\s*)?(?:<sup>.*?<\/sup>\s*)?\[([^\]]+)\]\((https?:\/\/[^)]+)\)(?:<sup>.*?<\/sup>)?\s*[-–—]\s*(.+)/
+  );
+  if (!match) return null;
+  const [, name, url, description] = match;
+  return {
+    name: name.trim(),
+    url: url.trim(),
+    description: description.trim(),
+    category: currentCategory,
+    isOfficial: line.includes("⭐"),
+  };
+}
+
+/** Parse wong2 format: `- **[Name](url)** - Description` */
+function parseWong2Entry(
+  line: string,
+  currentCategory: string
+): ParsedEntry | null {
+  const match = line.match(
+    /^\- \*\*\[([^\]]+)\]\((https?:\/\/[^)]+)\)\*\*\s*[-–—]\s*(.+)/
+  );
+  if (!match) return null;
+  const [, name, url, description] = match;
+  return {
+    name: name.trim(),
+    url: url.trim(),
+    description: description.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").trim(),
+    category: currentCategory,
+    isOfficial: currentCategory.toLowerCase().includes("official"),
+  };
+}
+
+function parseAwesomeReadme(
+  markdown: string,
+  parseEntry: (line: string, cat: string) => ParsedEntry | null
+): ParsedEntry[] {
+  const lines = markdown.split("\n");
+  const entries: ParsedEntry[] = [];
+  let currentCategory = "general";
+
+  for (const line of lines) {
+    // Detect category headings: ## 📂 File Systems  or  ## Official Servers
+    const headingMatch = line.match(/^#{1,3}\s+(?:[^\w]*\s*)?(.+)/);
+    if (headingMatch) {
+      const heading = headingMatch[1]
+        .replace(/<[^>]+>/g, "")
+        .replace(/[^\w\s&-]/g, "")
+        .trim();
+      if (heading.length > 0) currentCategory = heading;
+      continue;
+    }
+
+    const entry = parseEntry(line, currentCategory);
+    if (entry) entries.push(entry);
+  }
+
+  return entries;
+}
+
+function entryToService(entry: ParsedEntry): Service {
+  const slug = entry.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  const caps = extractCapsFromDescription(entry.description);
+  if (entry.category) caps.push(entry.category.toLowerCase());
+
+  return {
+    id: `github-${slug}`,
+    name: entry.name,
+    description: entry.description,
+    capabilities: [...new Set(caps)],
+    platform: "github",
+    protocols: { mcp: entry.url },
+    pricing: { model: "free", price_usd: 0 },
+    reputation_score: entry.isOfficial ? 4.0 : 3.0,
+    success_rate: null,
+    uptime_30d: null,
+    latency_p95_ms: null,
+    total_calls: 0,
+    successful_calls: 0,
+    failed_calls: 0,
+    retry_rate: null,
+    avg_cost_per_success: null,
+    doc_completeness: entry.description.length > 50 ? 0.7 : 0.4,
+    verified: entry.isOfficial,
+    source_url: entry.url,
+  };
+}
+
+function extractCapsFromDescription(desc: string): string[] {
+  const caps: string[] = [];
+  const lower = desc.toLowerCase();
+  const keywords = [
+    "translation", "search", "database", "email", "file",
+    "api", "web", "scraping", "browser", "code", "git",
+    "slack", "discord", "notion", "github", "image",
+    "audio", "video", "pdf", "calendar", "weather",
+    "analytics", "monitoring", "security", "ai", "llm",
+    "docker", "kubernetes", "cloud", "storage", "sql",
+    "postgres", "mysql", "redis", "mongodb", "supabase",
+    "stripe", "payment", "blockchain", "crypto", "finance",
+  ];
+  for (const kw of keywords) {
+    if (lower.includes(kw)) caps.push(kw);
+  }
+  return caps;
+}
+
+export async function crawlAwesomeMcp(env: Env): Promise<number> {
+  const seenIds = new Set<string>();
+  const allServices: Service[] = [];
+
+  // Phase 1: Fetch and parse all READMEs (fast, no DB calls)
+  for (const repo of AWESOME_REPOS) {
+    try {
+      const response = await fetch(repo.url, {
+        headers: { Accept: "text/plain" },
+      });
+
+      if (!response.ok) {
+        console.error(`GitHub fetch failed: ${response.status} ${repo.url}`);
+        continue;
+      }
+
+      const markdown = await response.text();
+      const entries = parseAwesomeReadme(markdown, repo.parseEntry);
+
+      for (const entry of entries) {
+        const service = entryToService(entry);
+        if (seenIds.has(service.id)) continue;
+        seenIds.add(service.id);
+        allServices.push(service);
+      }
+    } catch (error) {
+      console.error(`Crawl awesome repo failed: ${repo.url}`, error);
+    }
+  }
+
+  if (allServices.length === 0) return 0;
+
+  // Phase 2: Batch upsert using D1 batch API (much faster than individual queries)
+  const BATCH_SIZE = 50;
+  let totalUpserted = 0;
+
+  for (let i = 0; i < allServices.length; i += BATCH_SIZE) {
+    const batch = allServices.slice(i, i + BATCH_SIZE);
+    try {
+      const statements = batch.map((service) =>
+        env.DB.prepare(
+          `INSERT INTO services (id, name, description, capabilities, platform, protocols, pricing,
+            reputation_score, success_rate, uptime_30d, latency_p95_ms, total_calls,
+            successful_calls, failed_calls, retry_rate, avg_cost_per_success,
+            doc_completeness, verified, source_url, last_health_check, updated_at)
+          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, datetime('now'))
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name, description = excluded.description,
+            capabilities = excluded.capabilities, protocols = excluded.protocols,
+            pricing = excluded.pricing, reputation_score = excluded.reputation_score,
+            doc_completeness = excluded.doc_completeness, verified = excluded.verified,
+            source_url = excluded.source_url, updated_at = datetime('now')`
+        ).bind(
+          service.id, service.name, service.description,
+          JSON.stringify(service.capabilities), service.platform,
+          JSON.stringify(service.protocols), JSON.stringify(service.pricing),
+          service.reputation_score, service.success_rate, service.uptime_30d,
+          service.latency_p95_ms, service.total_calls, service.successful_calls,
+          service.failed_calls, service.retry_rate, service.avg_cost_per_success,
+          service.doc_completeness, service.verified ? 1 : 0,
+          service.source_url, null
+        )
+      );
+      await env.DB.batch(statements);
+      totalUpserted += batch.length;
+    } catch (error) {
+      console.error(`Batch upsert failed at offset ${i}:`, error);
+    }
+  }
+
+  console.log(`GitHub awesome crawl complete: ${totalUpserted} services upserted (run /admin/reindex to embed)`);
+  return totalUpserted;
+}
+
+// ─── GitHub Stars Enrichment ───
+
+const ENRICH_BATCH_SIZE = 25; // Stay well under 60/hour rate limit
+
+/** Extract GitHub owner/repo from a URL like https://github.com/owner/repo/... */
+function extractGitHubRepo(url: string): string | null {
+  const match = url.match(/github\.com\/([^/]+\/[^/]+)/);
+  if (!match) return null;
+  // Clean up trailing fragments
+  return match[1].replace(/\.git$/, "");
+}
+
+function starsToReputation(stars: number): number {
+  if (stars > 10000) return 5.0;
+  if (stars > 5000) return 4.8;
+  if (stars > 1000) return 4.5;
+  if (stars > 500) return 4.2;
+  if (stars > 100) return 3.8;
+  if (stars > 50) return 3.5;
+  if (stars > 10) return 3.2;
+  return 3.0;
+}
+
+export async function enrichGitHubStars(env: Env): Promise<number> {
+  // Get GitHub services that haven't been enriched recently
+  const result = await env.DB.prepare(
+    `SELECT id, source_url FROM services
+     WHERE platform = 'github' AND source_url LIKE '%github.com%'
+     AND (last_health_check IS NULL OR last_health_check < datetime('now', '-7 days'))
+     LIMIT ?`
+  ).bind(ENRICH_BATCH_SIZE).all<{ id: string; source_url: string }>();
+
+  const services = result.results ?? [];
+  if (services.length === 0) return 0;
+
+  let enriched = 0;
+  const statements: D1PreparedStatement[] = [];
+
+  for (const svc of services) {
+    const repo = extractGitHubRepo(svc.source_url);
+    if (!repo) {
+      // Mark as checked so we skip it next time
+      statements.push(
+        env.DB.prepare(
+          "UPDATE services SET last_health_check = datetime('now') WHERE id = ?"
+        ).bind(svc.id)
+      );
+      continue;
+    }
+
+    try {
+      const res = await fetch(`https://api.github.com/repos/${repo}`, {
+        headers: {
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "disvr-crawler/1.0",
+        },
+      });
+
+      if (res.status === 403 || res.status === 429) {
+        // Rate limited — stop processing
+        console.log("GitHub API rate limited, stopping enrichment");
+        break;
+      }
+
+      if (!res.ok) {
+        statements.push(
+          env.DB.prepare(
+            "UPDATE services SET last_health_check = datetime('now') WHERE id = ?"
+          ).bind(svc.id)
+        );
+        continue;
+      }
+
+      const data = (await res.json()) as { stargazers_count?: number; description?: string };
+      const stars = data.stargazers_count ?? 0;
+      const reputation = starsToReputation(stars);
+
+      statements.push(
+        env.DB.prepare(
+          `UPDATE services SET
+            reputation_score = ?, total_calls = ?,
+            last_health_check = datetime('now'), updated_at = datetime('now')
+          WHERE id = ?`
+        ).bind(reputation, stars, svc.id)
+      );
+      enriched++;
+    } catch (error) {
+      console.error(`Failed to enrich ${svc.id}:`, error);
+    }
+  }
+
+  if (statements.length > 0) {
+    try {
+      await env.DB.batch(statements);
+    } catch (error) {
+      console.error("Batch update for enrichment failed:", error);
+    }
+  }
+
+  console.log(`Enrichment complete: ${enriched}/${services.length} services updated with GitHub stars`);
+  return enriched;
+}
+
 export async function embedAndIndex(
   env: Env,
   services: Service[]

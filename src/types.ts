@@ -4,6 +4,7 @@ export interface Env {
   OPENAI_API_KEY: string;
   ENVIRONMENT: string;
   MCP_AGENT: DurableObjectNamespace;
+  ADMIN_KEY?: string;
 }
 
 // ─── Database Row Types ───

@@ -37,6 +37,9 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 .gradient-border { position: relative; }
 .gradient-border::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(183,159,255,0.3), rgba(98,250,227,0.3)); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; -webkit-mask-composite: destination-out; pointer-events: none; }
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+input[type="range"] { -webkit-appearance: none; height: 4px; border-radius: 2px; background: #192540; outline: none; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: #b79fff; cursor: pointer; border: 2px solid #060e20; }
+input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #b79fff; cursor: pointer; border: 2px solid #060e20; }
 </style>
 </head>
 <body class="bg-surface selection:bg-primary/30">
@@ -100,6 +103,62 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
       </div>
     </div>
     <button onclick="executeSearch()" class="md:hidden mt-4 w-full bg-gradient-to-r from-primary to-secondary text-surface-container-lowest font-bold px-8 py-3 rounded-full">Discover</button>
+
+    <!-- Advanced Filters (collapsible) -->
+    <div class="mt-4">
+      <button onclick="toggleFilters()" id="filter-toggle" class="flex items-center gap-2 text-sm text-on-surface-variant hover:text-on-surface transition-colors">
+        <span class="material-symbols-outlined text-lg" id="filter-arrow">expand_more</span>
+        <span>Advanced Filters</span>
+        <span id="filter-badge" class="hidden px-2 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">Active</span>
+      </button>
+      <div id="filter-panel" class="hidden mt-3 glass-panel p-6 rounded-xl gradient-border">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Max Price -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-sm text-on-surface-variant">Max Price per Call</label>
+              <span class="text-xs font-mono text-primary" id="price-val">Any</span>
+            </div>
+            <input type="range" id="filter-price" min="0" max="100" step="1" value="0" oninput="updateFilterLabel('price')"
+              class="w-full h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-primary"/>
+            <div class="flex justify-between text-[10px] text-on-surface-variant/50 mt-1"><span>Free</span><span>$1</span><span>$10</span><span>$100</span></div>
+          </div>
+          <!-- Max Latency -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-sm text-on-surface-variant">Max Latency (P95)</label>
+              <span class="text-xs font-mono text-secondary" id="latency-val">Any</span>
+            </div>
+            <input type="range" id="filter-latency" min="0" max="100" step="1" value="0" oninput="updateFilterLabel('latency')"
+              class="w-full h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-secondary"/>
+            <div class="flex justify-between text-[10px] text-on-surface-variant/50 mt-1"><span>Any</span><span>500ms</span><span>2s</span><span>10s</span></div>
+          </div>
+          <!-- Min Reputation -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-sm text-on-surface-variant">Min Reputation</label>
+              <span class="text-xs font-mono text-tertiary" id="rep-val">Any</span>
+            </div>
+            <input type="range" id="filter-rep" min="0" max="50" step="1" value="0" oninput="updateFilterLabel('rep')"
+              class="w-full h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-pink-400"/>
+            <div class="flex justify-between text-[10px] text-on-surface-variant/50 mt-1"><span>Any</span><span>2.5</span><span>5.0</span></div>
+          </div>
+          <!-- Min Success Rate -->
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-sm text-on-surface-variant">Min Success Rate</label>
+              <span class="text-xs font-mono text-on-surface" id="rate-val">Any</span>
+            </div>
+            <input type="range" id="filter-rate" min="0" max="100" step="1" value="0" oninput="updateFilterLabel('rate')"
+              class="w-full h-1 bg-surface-container-highest rounded-lg appearance-none cursor-pointer accent-white"/>
+            <div class="flex justify-between text-[10px] text-on-surface-variant/50 mt-1"><span>Any</span><span>50%</span><span>90%</span><span>100%</span></div>
+          </div>
+        </div>
+        <div class="flex justify-end mt-4 gap-3">
+          <button onclick="resetFilters()" class="text-xs text-on-surface-variant hover:text-on-surface transition-colors px-3 py-1.5 rounded-lg border border-outline-variant/30">Reset</button>
+        </div>
+      </div>
+    </div>
   </section>
 
   <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -144,7 +203,12 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
       <div id="results-container" class="glass-panel p-8 rounded-xl gradient-border">
         <div class="flex justify-between items-center mb-8">
           <h3 class="font-headline text-xl font-bold">Discovery Results</h3>
-          <span class="text-on-surface-variant text-sm" id="result-status">Enter a query above to search</span>
+          <div class="flex items-center gap-4">
+            <button onclick="toggleCompare()" id="compare-btn" class="hidden items-center gap-1.5 text-xs text-on-surface-variant hover:text-primary transition-colors px-3 py-1.5 rounded-lg border border-outline-variant/30">
+              <span class="material-symbols-outlined text-sm">compare_arrows</span> Compare
+            </button>
+            <span class="text-on-surface-variant text-sm" id="result-status">Enter a query above to search</span>
+          </div>
         </div>
         <div id="results-list" class="space-y-4">
           <div class="text-center py-12 text-on-surface-variant">
@@ -313,6 +377,144 @@ function getApiKey() {
   return keyInput.value.trim() || localStorage.getItem('disvr_api_key') || '';
 }
 
+// ─── Advanced Filters ───
+let filtersVisible = false;
+let compareMode = false;
+let lastResults = [];
+
+const priceStops = [0, 0.01, 0.05, 0.1, 0.5, 1, 2, 5, 10, 25, 50, 100];
+const latencyStops = [0, 100, 200, 500, 1000, 2000, 5000, 10000];
+
+function sliderToPrice(v) { const i = Math.round(v / 100 * (priceStops.length - 1)); return priceStops[i]; }
+function sliderToLatency(v) { const i = Math.round(v / 100 * (latencyStops.length - 1)); return latencyStops[i]; }
+
+function updateFilterLabel(type) {
+  if (type === 'price') {
+    const v = parseInt(document.getElementById('filter-price').value);
+    document.getElementById('price-val').textContent = v === 0 ? 'Any' : '$' + sliderToPrice(v);
+  } else if (type === 'latency') {
+    const v = parseInt(document.getElementById('filter-latency').value);
+    document.getElementById('latency-val').textContent = v === 0 ? 'Any' : sliderToLatency(v) + 'ms';
+  } else if (type === 'rep') {
+    const v = parseInt(document.getElementById('filter-rep').value);
+    document.getElementById('rep-val').textContent = v === 0 ? 'Any' : (v / 10).toFixed(1);
+  } else if (type === 'rate') {
+    const v = parseInt(document.getElementById('filter-rate').value);
+    document.getElementById('rate-val').textContent = v === 0 ? 'Any' : v + '%';
+  }
+  updateFilterBadge();
+}
+
+function updateFilterBadge() {
+  const active = hasActiveFilters();
+  document.getElementById('filter-badge').classList.toggle('hidden', !active);
+}
+
+function hasActiveFilters() {
+  return parseInt(document.getElementById('filter-price').value) > 0 ||
+    parseInt(document.getElementById('filter-latency').value) > 0 ||
+    parseInt(document.getElementById('filter-rep').value) > 0 ||
+    parseInt(document.getElementById('filter-rate').value) > 0;
+}
+
+function getFilterParams() {
+  const p = {};
+  const pv = parseInt(document.getElementById('filter-price').value);
+  if (pv > 0) p.max_price_per_call = sliderToPrice(pv);
+  const lv = parseInt(document.getElementById('filter-latency').value);
+  if (lv > 0) p.max_latency_ms = sliderToLatency(lv);
+  const rv = parseInt(document.getElementById('filter-rep').value);
+  if (rv > 0) p.min_reputation = rv / 10;
+  const sv = parseInt(document.getElementById('filter-rate').value);
+  if (sv > 0) p.min_success_rate = sv / 100;
+  return p;
+}
+
+function toggleFilters() {
+  filtersVisible = !filtersVisible;
+  document.getElementById('filter-panel').classList.toggle('hidden', !filtersVisible);
+  document.getElementById('filter-arrow').textContent = filtersVisible ? 'expand_less' : 'expand_more';
+}
+
+function resetFilters() {
+  ['filter-price','filter-latency','filter-rep','filter-rate'].forEach(function(id) { document.getElementById(id).value = 0; });
+  ['price','latency','rep','rate'].forEach(updateFilterLabel);
+}
+
+// ─── Compare Mode ───
+function toggleCompare() {
+  compareMode = !compareMode;
+  const btn = document.getElementById('compare-btn');
+  btn.classList.toggle('border-primary/50', compareMode);
+  btn.classList.toggle('text-primary', compareMode);
+  if (lastResults.length > 0) renderResults(lastResults);
+}
+
+function renderResultCard(r, i) {
+  const score = r.match_confidence ? (r.match_confidence * 100).toFixed(0) : '--';
+  const rep = r.reputation !== null ? r.reputation.toFixed(1) : 'N/A';
+  const rate = r.success_rate !== null ? (r.success_rate * 100).toFixed(0) + '%' : 'N/A';
+  const colors = ['primary', 'secondary', 'tertiary'];
+  const c = colors[i % 3];
+
+  if (compareMode) {
+    return '<div class="glass-panel p-5 rounded-xl gradient-border flex flex-col">' +
+      '<div class="flex items-center gap-3 mb-4">' +
+      '<div class="w-8 h-8 rounded-lg bg-' + c + '/20 flex items-center justify-center shrink-0">' +
+      '<span class="font-headline font-black text-' + c + ' text-sm">#' + (i+1) + '</span></div>' +
+      '<h4 class="font-bold text-on-surface text-sm truncate">' + r.service + '</h4></div>' +
+      '<div class="text-center mb-4"><div class="text-3xl font-headline font-black text-' + c + '">' + score + '%</div>' +
+      '<div class="text-[10px] text-on-surface-variant uppercase">Match</div></div>' +
+      '<div class="space-y-2 text-xs flex-1">' +
+      '<div class="flex justify-between"><span class="text-on-surface-variant">Platform</span><span class="text-on-surface">' + r.platform + '</span></div>' +
+      '<div class="flex justify-between"><span class="text-on-surface-variant">Reputation</span><span class="text-secondary font-medium">' + rep + '/5</span></div>' +
+      '<div class="flex justify-between"><span class="text-on-surface-variant">Success Rate</span><span class="text-on-surface">' + rate + '</span></div>' +
+      (r.price_usd !== null ? '<div class="flex justify-between"><span class="text-on-surface-variant">Price</span><span class="text-primary font-medium">$' + r.price_usd + '</span></div>' : '') +
+      (r.latency_p95_ms !== null ? '<div class="flex justify-between"><span class="text-on-surface-variant">P95 Latency</span><span class="text-tertiary font-medium">' + r.latency_p95_ms + 'ms</span></div>' : '') +
+      (r.total_calls ? '<div class="flex justify-between"><span class="text-on-surface-variant">Total Calls</span><span class="text-on-surface">' + r.total_calls.toLocaleString() + '</span></div>' : '') +
+      '</div>' +
+      '<p class="text-xs text-on-surface-variant mt-3 pt-3 border-t border-outline-variant/20">' + (r.reason || '') + '</p>' +
+      '</div>';
+  }
+
+  return '<div class="glass-panel p-6 rounded-xl gradient-border">' +
+    '<div class="flex justify-between items-start mb-3">' +
+    '<div class="flex items-center gap-3">' +
+    '<div class="w-10 h-10 rounded-lg bg-' + c + '/20 flex items-center justify-center">' +
+    '<span class="font-headline font-black text-' + c + '">#' + (i+1) + '</span></div>' +
+    '<div><h4 class="font-bold text-on-surface">' + r.service + '</h4>' +
+    '<span class="text-xs text-on-surface-variant">' + r.platform + '</span></div></div>' +
+    '<div class="text-right"><div class="text-2xl font-headline font-black text-' + c + '">' + score + '%</div>' +
+    '<div class="text-[10px] text-on-surface-variant uppercase">Match</div></div></div>' +
+    '<p class="text-sm text-on-surface-variant mb-3">' + (r.reason || '') + '</p>' +
+    '<div class="flex gap-4 text-xs text-on-surface-variant">' +
+    '<span>Rep: <strong class="text-secondary">' + rep + '/5</strong></span>' +
+    (r.price_usd !== null ? '<span>Price: <strong class="text-primary">$' + r.price_usd + '</strong></span>' : '') +
+    (r.latency_p95_ms !== null ? '<span>P95: <strong class="text-tertiary">' + r.latency_p95_ms + 'ms</strong></span>' : '') +
+    '</div></div>';
+}
+
+function renderResults(recs) {
+  lastResults = recs;
+  const list = document.getElementById('results-list');
+  const compareBtn = document.getElementById('compare-btn');
+
+  if (recs.length > 1) {
+    compareBtn.classList.remove('hidden');
+    compareBtn.classList.add('inline-flex');
+  } else {
+    compareBtn.classList.add('hidden');
+  }
+
+  if (compareMode && recs.length > 1) {
+    list.className = 'grid grid-cols-' + Math.min(recs.length, 3) + ' gap-4';
+  } else {
+    list.className = 'space-y-4';
+  }
+
+  list.innerHTML = recs.map(function(r, i) { return renderResultCard(r, i); }).join('');
+}
+
 async function executeSearch() {
   const query = document.getElementById('query-input').value.trim();
   if (query.length < 5) { alert('Please enter at least 5 characters.'); return; }
@@ -325,13 +527,16 @@ async function executeSearch() {
   }
 
   document.getElementById('result-status').textContent = 'Searching...';
+  document.getElementById('results-list').className = 'space-y-4';
   document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-on-surface-variant"><span class="material-symbols-outlined text-3xl animate-spin">progress_activity</span><p class="mt-2">Querying Disvr API...</p></div>';
+
+  const body = Object.assign({ need: query }, getFilterParams());
 
   try {
     const res = await fetch('/discover', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
-      body: JSON.stringify({ need: query })
+      body: JSON.stringify(body)
     });
 
     if (res.status === 401) {
@@ -348,31 +553,14 @@ async function executeSearch() {
     const data = await res.json();
 
     if (data.recommendations && data.recommendations.length > 0) {
-      document.getElementById('result-status').textContent = data.recommendations.length + ' recommendations found';
-      document.getElementById('results-list').innerHTML = data.recommendations.map(function(r, i) {
-        const score = r.match_confidence ? (r.match_confidence * 100).toFixed(0) : '--';
-        const rep = r.reputation !== null ? r.reputation.toFixed(1) : 'N/A';
-        const colors = ['primary', 'secondary', 'tertiary'];
-        const c = colors[i % 3];
-        return '<div class="glass-panel p-6 rounded-xl gradient-border">' +
-          '<div class="flex justify-between items-start mb-3">' +
-          '<div class="flex items-center gap-3">' +
-          '<div class="w-10 h-10 rounded-lg bg-' + c + '/20 flex items-center justify-center">' +
-          '<span class="font-headline font-black text-' + c + '">#' + (i+1) + '</span></div>' +
-          '<div><h4 class="font-bold text-on-surface">' + r.service + '</h4>' +
-          '<span class="text-xs text-on-surface-variant">' + r.platform + '</span></div></div>' +
-          '<div class="text-right"><div class="text-2xl font-headline font-black text-' + c + '">' + score + '%</div>' +
-          '<div class="text-[10px] text-on-surface-variant uppercase">Match</div></div></div>' +
-          '<p class="text-sm text-on-surface-variant mb-3">' + (r.reason || '') + '</p>' +
-          '<div class="flex gap-4 text-xs text-on-surface-variant">' +
-          '<span>Rep: <strong class="text-secondary">' + rep + '/5</strong></span>' +
-          (r.price_usd !== null ? '<span>Price: <strong class="text-primary">$' + r.price_usd + '</strong></span>' : '') +
-          (r.latency_p95_ms !== null ? '<span>P95: <strong class="text-tertiary">' + r.latency_p95_ms + 'ms</strong></span>' : '') +
-          '</div></div>';
-      }).join('');
+      const filterNote = hasActiveFilters() ? ' (filtered)' : '';
+      document.getElementById('result-status').textContent = data.recommendations.length + ' recommendations' + filterNote;
+      renderResults(data.recommendations);
     } else {
+      lastResults = [];
+      document.getElementById('compare-btn').classList.add('hidden');
       document.getElementById('result-status').textContent = 'No results';
-      document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-on-surface-variant"><p>No matching services found. Try a different query.</p></div>';
+      document.getElementById('results-list').innerHTML = '<div class="text-center py-8 text-on-surface-variant"><p>No matching services found.' + (hasActiveFilters() ? ' Try relaxing your filters.' : ' Try a different query.') + '</p></div>';
     }
   } catch (e) {
     document.getElementById('result-status').textContent = 'Error';

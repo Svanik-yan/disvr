@@ -234,26 +234,31 @@ describe("getSystemStats", () => {
     const mockAll = vi.fn();
     const mockBind = vi.fn();
 
-    // getSystemStats fires 7 parallel queries via Promise.all
-    // We need prepare to return stubs that resolve in sequence
+    // getSystemStats fires 11 parallel queries via Promise.all
+    // Indices 0-3 use .first(), 4-8 use .all(), 9-10 use .first()
     let callIdx = 0;
-    const results = [
-      { c: 100 },                    // count services
-      { c: 50 },                     // count reports
-      { v: 0.92 },                   // avg success rate
-      { v: 1200 },                   // avg latency
-      { results: [{ platform: "smithery", count: 90 }] },  // platforms
-      { results: [{ name: "svc1", reputation_score: 4.5, total_calls: 500 }] }, // top
-      { results: [{ service_id: "svc1", success: 1, created_at: "2026-03-25" }] }, // recent
-    ];
+    const firstResults: Record<number, unknown> = {
+      0: { c: 100 },       // count services
+      1: { c: 50 },        // count reports
+      2: { v: 0.92 },      // avg success rate
+      3: { v: 1200 },      // avg latency
+      9: { c: 5 },         // verified count
+      10: { c: 30 },       // with stars count
+    };
+    const allResults: Record<number, unknown> = {
+      4: { results: [{ platform: "smithery", count: 90 }] },
+      5: { results: [{ name: "svc1", reputation_score: 4.5, total_calls: 500 }] },
+      6: { results: [{ service_id: "svc1", success: 1, created_at: "2026-03-25" }] },
+      7: { results: [{ date: "2026-03-25", count: 10 }] },
+      8: { results: [{ name: "new-svc", platform: "github", created_at: "2026-03-25" }] },
+    };
 
     const mockPrepare = vi.fn().mockImplementation(() => {
       const idx = callIdx++;
-      const isAll = idx >= 4; // last 3 use .all()
       return {
         bind: vi.fn().mockReturnThis(),
-        first: vi.fn().mockResolvedValue(isAll ? undefined : results[idx]),
-        all: vi.fn().mockResolvedValue(isAll ? results[idx] : undefined),
+        first: vi.fn().mockResolvedValue(firstResults[idx] ?? undefined),
+        all: vi.fn().mockResolvedValue(allResults[idx] ?? { results: [] }),
       };
     });
 
@@ -269,5 +274,9 @@ describe("getSystemStats", () => {
     expect(stats.platforms).toHaveLength(1);
     expect(stats.top_services).toHaveLength(1);
     expect(stats.recent_reports).toHaveLength(1);
+    expect(stats.services_by_date).toHaveLength(1);
+    expect(stats.recent_services).toHaveLength(1);
+    expect(stats.verified_count).toBe(5);
+    expect(stats.with_stars_count).toBe(30);
   });
 });
