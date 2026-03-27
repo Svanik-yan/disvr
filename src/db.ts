@@ -576,3 +576,54 @@ export async function getSystemStats(db: D1Database): Promise<{
     recent_reports: recentRes.results ?? [],
   };
 }
+
+// ─── MCP Reports (simplified feedback) ───
+
+export async function insertReport(
+  db: D1Database,
+  report: {
+    service_id: string;
+    query_id: string;
+    api_key_hash: string;
+    success: boolean;
+    latency_ms?: number;
+    error_message?: string;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO reports (id, service_id, query_id, api_key_hash, success, latency_ms, error_message, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`
+    )
+    .bind(
+      crypto.randomUUID(),
+      report.service_id,
+      report.query_id,
+      report.api_key_hash,
+      report.success ? 1 : 0,
+      report.latency_ms ?? null,
+      report.error_message ?? null
+    )
+    .run();
+}
+
+export async function getServiceReportStats(
+  db: D1Database,
+  serviceId: string
+): Promise<{ total: number; success_rate: number; avg_latency_ms: number | null }> {
+  const row = await db
+    .prepare(
+      `SELECT
+        COUNT(*) as total,
+        AVG(CASE WHEN success = 1 THEN 1.0 ELSE 0.0 END) as success_rate,
+        AVG(CASE WHEN success = 1 THEN latency_ms ELSE NULL END) as avg_latency_ms
+       FROM reports WHERE service_id = ?`
+    )
+    .bind(serviceId)
+    .first();
+  return {
+    total: (row?.total as number) ?? 0,
+    success_rate: (row?.success_rate as number) ?? 0,
+    avg_latency_ms: (row?.avg_latency_ms as number) ?? null,
+  };
+}
