@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
-import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats } from "./db.js";
+import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail } from "./db.js";
 import { crawlSmithery, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
@@ -10,6 +10,7 @@ import { landingPageHtml } from "./landing.js";
 import { registryPageHtml } from "./pages/registry.js";
 import { explorerPageHtml } from "./pages/explorer.js";
 import { analyticsPageHtml } from "./pages/analytics.js";
+import { keysPageHtml } from "./pages/keys.js";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -25,6 +26,7 @@ app.get("/", (c) => {
 app.get("/registry", (c) => c.html(registryPageHtml));
 app.get("/explorer", (c) => c.html(explorerPageHtml));
 app.get("/analytics", (c) => c.html(analyticsPageHtml));
+app.get("/keys", (c) => c.html(keysPageHtml));
 
 // Health check
 app.get("/health", async (c) => {
@@ -152,6 +154,47 @@ app.get("/api/services", async (c) => {
 app.get("/api/stats", async (c) => {
   const stats = await getSystemStats(c.env.DB);
   return c.json(stats);
+});
+
+// ─── API Key Registration ───
+
+app.post("/api/register", async (c) => {
+  let body: { email?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid_json", message: "Request body must be valid JSON." }, 400);
+  }
+
+  const email = body.email?.trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return c.json({ error: "invalid_email", message: "Please provide a valid email address." }, 400);
+  }
+
+  // Limit: max 3 keys per email
+  const existingCount = await getKeyCountByEmail(c.env.DB, email);
+  if (existingCount >= 3) {
+    return c.json(
+      { error: "limit_reached", message: "Maximum 3 API keys per email. Contact us for more." },
+      429
+    );
+  }
+
+  // Generate key: dsvr_ prefix + 32 random hex chars
+  const rawBytes = new Uint8Array(16);
+  crypto.getRandomValues(rawBytes);
+  const apiKey = "dsvr_" + Array.from(rawBytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+
+  const keyHash = await hashKey(apiKey);
+  await createApiKey(c.env.DB, email, keyHash);
+
+  return c.json({
+    status: "ok",
+    api_key: apiKey,
+    tier: "free",
+    daily_limit: 50,
+    message: "Save this key — it will not be shown again.",
+  });
 });
 
 // Admin: trigger crawl manually

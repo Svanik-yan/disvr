@@ -74,6 +74,7 @@ tailwind.config = {
     <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/registry">Registry</a>
     <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/explorer">Explorer</a>
     <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/analytics">Analytics</a>
+    <a class="text-slate-300 hover:text-slate-100 transition-colors" href="/keys">Get API Key</a>
     <a class="text-slate-300 hover:text-slate-100 transition-colors" href="https://github.com/Svanik-yan/disvr" target="_blank">GitHub</a>
   </div>
   <div class="flex items-center gap-4">

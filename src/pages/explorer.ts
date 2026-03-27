@@ -55,6 +55,7 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
         <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/registry">Registry</a>
         <a class="text-teal-300 border-b-2 border-teal-300 pb-1" href="/explorer">Explorer</a>
         <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/analytics">Analytics</a>
+        <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/keys">Get API Key</a>
       </nav>
     </div>
     <a href="https://api.disvr.top/health" target="_blank" class="hidden sm:inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass-panel text-secondary text-sm font-medium border border-white/10">

@@ -87,11 +87,14 @@ CREATE INDEX IF NOT EXISTS idx_call_reports_created ON call_reports(created_at);
 
 CREATE TABLE IF NOT EXISTS api_keys (
   key_hash TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
   tier TEXT NOT NULL DEFAULT 'free',  -- 'free' | 'pro' | 'scale'
   daily_usage INTEGER DEFAULT 0,
   last_reset TEXT DEFAULT (date('now')),
   created_at TEXT DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS idx_api_keys_email ON api_keys(email);
 
 -- ─── Query Cache ───
 

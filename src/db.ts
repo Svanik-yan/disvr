@@ -263,6 +263,30 @@ export async function incrementUsage(
     .run();
 }
 
+export async function createApiKey(
+  db: D1Database,
+  email: string,
+  keyHash: string
+): Promise<void> {
+  await db
+    .prepare(
+      "INSERT INTO api_keys (key_hash, email, tier, daily_usage, last_reset) VALUES (?1, ?2, 'free', 0, date('now'))"
+    )
+    .bind(keyHash, email)
+    .run();
+}
+
+export async function getKeyCountByEmail(
+  db: D1Database,
+  email: string
+): Promise<number> {
+  const result = await db
+    .prepare("SELECT COUNT(*) as count FROM api_keys WHERE email = ?1")
+    .bind(email)
+    .first<{ count: number }>();
+  return result?.count ?? 0;
+}
+
 export function getRateLimit(tier: string): number {
   const limits: Record<string, number> = {
     free: 50,
