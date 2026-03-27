@@ -17,7 +17,7 @@ Agent 智能服务发现引擎，帮 AI Agent 找到最值得用的工具。
 ```bash
 # Development
 npx wrangler dev                    # Local dev server
-npx vitest run                      # Run all tests (65 tests)
+npx vitest run                      # Run all tests (90 tests)
 npx wrangler deploy                 # Deploy to production
 
 # Database
@@ -50,7 +50,7 @@ src/
 ├── index.ts          # Hono app, routes, auth middleware
 ├── discover.ts       # Core search + ranking engine
 ├── db.ts             # D1 CRUD, stats, API key management
-├── crawl.ts          # Smithery crawler + embedding pipeline
+├── crawl.ts          # Multi-source crawlers (Smithery, GitHub, MCP Registry) + embedding
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -62,7 +62,7 @@ src/
 test/
 ├── types.test.ts     # 8 tests
 ├── discover.test.ts  # 12 tests
-├── db.test.ts        # 14 tests
+├── db.test.ts        # 17 tests
 ├── api.test.ts       # 24 tests
 └── crawl.test.ts     # 7 tests
 ```
@@ -81,9 +81,13 @@ test/
 | POST | /report | Bearer | Call report feedback |
 | GET | /api/services | No | Paginated service listing |
 | GET | /api/stats | No | System statistics |
+| GET | /api/analytics | No | Request analytics (daily calls, top queries) |
 | POST | /api/register | No | Generate API key |
-| POST | /admin/crawl | No | Trigger manual crawl |
-| POST | /admin/reindex | No | Reindex into Vectorize |
+| POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
+| POST | /admin/reindex | Admin | Reindex into Vectorize |
+| POST | /admin/rebuild-fts | Admin | Rebuild FTS5 index |
+| POST | /admin/enrich | Admin | Enrich GitHub stars |
+| POST | /admin/health-check | Admin | Run health checks |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
 ## Deployment
@@ -102,7 +106,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 65 tests, ~170ms
+npx vitest run          # 90 tests, ~170ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.

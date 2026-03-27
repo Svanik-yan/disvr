@@ -253,9 +253,9 @@ Agent Query ("I need X")
        ┌──────────────────────────────────┘
        ▼
   ┌─────────────┐
-  │ Cron Trigger │  ← Hourly crawl from Smithery
-  │ (hourly)     │     embedAndIndex → Vectorize
-  └─────────────┘
+  │ Cron Trigger │  ← Hourly: crawl (Smithery + GitHub + MCP Registry)
+  │ (4-phase)    │     → enrich GitHub Stars → health checks
+  └─────────────┘     → aggregate daily stats
        │
   ┌────▼────────────┐
   │ POST /report    │  ← Agent feedback
@@ -274,7 +274,7 @@ Agent Query ("I need X")
 | Text Search | FTS5 (OR + prefix, fallback path) |
 | Embedding | OpenAI text-embedding-3-small |
 | MCP Server | CF Agents SDK (McpAgent + Durable Objects) |
-| Data Source | Smithery Registry (16,000+ servers) |
+| Data Sources | Smithery, GitHub awesome-mcp, MCP Official Registry (~2000 services) |
 | Cron | CF Cron Trigger (hourly) |
 | Language | TypeScript |
 
@@ -290,7 +290,7 @@ disvr/
 │   ├── index.ts            # Hono entry + REST routes
 │   ├── discover.ts         # Core: semantic search + 4-dim ranking
 │   ├── db.ts               # D1 CRUD + feedback stats
-│   ├── crawl.ts            # Smithery crawler + embedAndIndex
+│   ├── crawl.ts            # Multi-source crawlers + embedAndIndex
 │   ├── mcp.ts              # MCP Server (Streamable HTTP)
 │   ├── types.ts            # TypeScript type definitions
 │   ├── landing.ts          # Landing page HTML
@@ -300,7 +300,10 @@ disvr/
 │       └── analytics.ts    # Analytics Dashboard page
 ├── test/
 │   ├── types.test.ts       # Type conversion tests
-│   └── discover.test.ts    # Matching engine tests
+│   ├── discover.test.ts    # Matching engine tests
+│   ├── db.test.ts          # D1 operations tests
+│   ├── api.test.ts         # REST API integration tests
+│   └── crawl.test.ts       # Crawler tests
 └── .mcp.json               # MCP config example
 ```
 
@@ -374,14 +377,20 @@ Every time an agent reports a call result (success/failure, latency, cost), it f
 
 - [x] Core API (discover + report + health)
 - [x] MCP Server (Streamable HTTP)
-- [x] Smithery crawler (330+ services indexed)
+- [x] Smithery crawler (330+ services)
+- [x] GitHub awesome-mcp crawler + Stars enrichment
+- [x] MCP Official Registry crawler (1000+ services)
 - [x] Landing page + 4 frontend pages
 - [x] Custom domains (www.disvr.top + api.disvr.top)
-- [ ] More data sources (MCP Official Registry, GitHub)
-- [ ] Agent integration verification
-- [ ] Additional tests (db.test.ts, api.test.ts, crawl.test.ts)
-- [ ] User registration + API key management UI
+- [x] npm SDK (@sylar_yan/disvr)
+- [x] 90 unit tests (types, discover, db, api, crawl)
+- [x] Request logging + Analytics API
+- [x] Daily stats cron aggregation
+- [x] Health checks + multi-signal reputation scoring
+- [x] User registration + API key management UI
+- [ ] Agent integration verification (MCP real-world testing)
 - [ ] Cost tracking dashboard
+- [ ] Payment protocol integration (Stripe MPP / x402)
 
 ---
 
