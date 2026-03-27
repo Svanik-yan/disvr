@@ -3,7 +3,7 @@ import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
 import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats } from "./db.js";
-import { crawlSmithery, crawlAwesomeMcp, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
+import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
 import { landingPageHtml } from "./landing.js";
@@ -262,11 +262,16 @@ app.post("/admin/crawl", async (c) => {
     const count = await crawlAwesomeMcp(c.env);
     return c.json({ status: "ok", source: "github", services_crawled: count });
   }
-  const [smitheryCount, githubCount] = await Promise.all([
+  if (source === "mcp_registry") {
+    const count = await crawlMcpRegistry(c.env);
+    return c.json({ status: "ok", source: "mcp_registry", services_crawled: count });
+  }
+  const [smitheryCount, githubCount, mcpRegCount] = await Promise.all([
     crawlSmithery(c.env),
     crawlAwesomeMcp(c.env),
+    crawlMcpRegistry(c.env),
   ]);
-  return c.json({ status: "ok", source: "all", smithery: smitheryCount, github: githubCount, total: smitheryCount + githubCount });
+  return c.json({ status: "ok", source: "all", smithery: smitheryCount, github: githubCount, mcp_registry: mcpRegCount, total: smitheryCount + githubCount + mcpRegCount });
 });
 
 // Admin: reindex existing services into Vectorize
@@ -329,6 +334,7 @@ const worker = {
         await Promise.all([
           crawlSmithery(env).catch((err) => console.error("Smithery crawl failed:", err)),
           crawlAwesomeMcp(env).catch((err) => console.error("GitHub crawl failed:", err)),
+          crawlMcpRegistry(env).catch((err) => console.error("MCP Registry crawl failed:", err)),
         ]);
         // Phase 2: enrich with GitHub stars
         await enrichGitHubStars(env).catch((err) => console.error("GitHub stars enrichment failed:", err));
