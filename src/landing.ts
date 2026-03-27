@@ -267,11 +267,14 @@ tailwind.config = {
             <p class="pl-4"><span class="text-primary">"url"</span>: <span class="text-secondary">"https://api.disvr.top/mcp"</span></p>
             <p>}}}</p>
             <br/>
-            <p class="text-slate-500">// Or use the REST API directly</p>
-            <p><span class="text-primary">curl</span> -X POST https://api.disvr.top/discover \\</p>
-            <p class="pl-4">-H <span class="text-secondary">"Authorization: Bearer YOUR_KEY"</span> \\</p>
-            <p class="pl-4">-H <span class="text-secondary">"Content-Type: application/json"</span> \\</p>
-            <p class="pl-4">-d <span class="text-secondary">'{"need": "translate Chinese legal contract to Thai"}'</span></p>
+            <p class="text-slate-500">// Or use the TypeScript SDK</p>
+            <p><span class="text-primary">npm</span> install <span class="text-secondary">@sylar_yan/disvr</span></p>
+            <br/>
+            <p><span class="text-primary">import</span> { <span class="text-secondary">Disvr</span> } <span class="text-primary">from</span> <span class="text-secondary">"@sylar_yan/disvr"</span>;</p>
+            <p><span class="text-primary">const</span> client = <span class="text-primary">new</span> <span class="text-secondary">Disvr</span>(<span class="text-secondary">"YOUR_KEY"</span>);</p>
+            <p><span class="text-primary">const</span> result = <span class="text-primary">await</span> client.<span class="text-secondary">discover</span>({</p>
+            <p class="pl-4"><span class="text-primary">need</span>: <span class="text-secondary">"translate Chinese legal contract to Thai"</span></p>
+            <p>});</p>
             <br/>
             <p class="text-slate-500">// Response: Top 3 ranked by value_score</p>
             <p>{ <span class="text-primary">"recommendations"</span>: [</p>

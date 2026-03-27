@@ -63,8 +63,16 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
   </div>
 </nav>
 
+<!-- SDK Banner -->
+<div class="mt-20 bg-surface-container-high/60 border-b border-primary/10">
+  <div class="max-w-7xl mx-auto px-8 py-3 flex items-center justify-between">
+    <p class="text-sm text-on-surface-variant"><span class="text-secondary font-semibold">New:</span> TypeScript SDK available &mdash; <code class="text-primary">npm install @sylar_yan/disvr</code></p>
+    <a href="https://www.npmjs.com/package/@sylar_yan/disvr" target="_blank" class="text-sm text-primary hover:text-primary-dim transition-colors font-medium">View on npm &rarr;</a>
+  </div>
+</div>
+
 <!-- Main Content -->
-<main class="mt-20 p-8 lg:p-12 min-h-screen max-w-7xl mx-auto">
+<main class="p-8 lg:p-12 min-h-screen max-w-7xl mx-auto">
   <header class="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
     <div class="max-w-2xl">
       <h1 class="text-5xl lg:text-6xl font-headline font-extrabold tracking-tighter mb-4 leading-[0.9] gradient-text">Provider Registry</h1>
