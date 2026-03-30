@@ -37,6 +37,8 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
 .gradient-border { position: relative; }
 .gradient-border::after { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; background: linear-gradient(135deg, rgba(183,159,255,0.3), rgba(98,250,227,0.3)); mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); mask-composite: exclude; -webkit-mask-composite: destination-out; pointer-events: none; }
 .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+@keyframes toastIn { from { opacity:0; transform:translateX(-50%) translateY(-12px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+@keyframes toastOut { from { opacity:1; transform:translateX(-50%) translateY(0); } to { opacity:0; transform:translateX(-50%) translateY(-12px); } }
 </style>
 </head>
 <body class="bg-surface selection:bg-primary/30">
@@ -218,7 +220,19 @@ function copyKey() {
     setTimeout(() => {
       btn.innerHTML = '<span class="material-symbols-outlined text-sm align-middle">content_copy</span> Copy';
     }, 2000);
+    showToast('Copied!');
   });
+}
+
+function showToast(msg) {
+  const existing = document.getElementById('copy-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'copy-toast';
+  toast.textContent = msg;
+  toast.style.cssText = 'position:fixed;top:24px;left:50%;transform:translateX(-50%);background:rgba(98,250,227,0.15);border:1px solid rgba(98,250,227,0.4);color:#62fae3;padding:10px 28px;border-radius:12px;font-size:14px;font-weight:600;z-index:9999;backdrop-filter:blur(12px);animation:toastIn .3s ease';
+  document.body.appendChild(toast);
+  setTimeout(() => { toast.style.animation = 'toastOut .3s ease forwards'; setTimeout(() => toast.remove(), 300); }, 1800);
 }
 </script>
 </body></html>`;
