@@ -11,6 +11,7 @@ import { runLiveProbes } from "./probe.js";
 import { seedScenarios, runFullBenchmark, getScenarioLeaderboard, getBenchmarkOverview, matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
 import { runCostExtraction } from "./cost.js";
 import { runErrorClassification, cleanupOldErrors } from "./error-taxonomy.js";
+import { runVersionChecks, getVersionHistory, getRecentBreakingChanges } from "./changelog.js";
 import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
@@ -599,6 +600,20 @@ app.get("/api/errors/:serviceId", async (c) => {
   });
 });
 
+// ─── Changelog Intelligence API ───
+
+app.get("/api/versions/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+  const history = await getVersionHistory(c.env.DB, serviceId);
+  return c.json({ success: true, data: history });
+});
+
+app.get("/api/breaking-changes", async (c) => {
+  const days = Number(c.req.query("days") || 7);
+  const changes = await getRecentBreakingChanges(c.env.DB, days);
+  return c.json({ success: true, data: changes });
+});
+
 // ─── Benchmark API ───
 
 app.get("/api/benchmark", async (c) => {
@@ -742,6 +757,12 @@ app.post("/admin/classify-errors", async (c) => {
   return c.json({ success: true, data: result });
 });
 
+// Admin: version check (changelog intelligence)
+app.post("/admin/version-check", async (c) => {
+  const result = await runVersionChecks(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
 // Admin: extract cost intelligence
 app.post("/admin/extract-cost", async (c) => {
   let body: { limit?: number } = {};
@@ -800,6 +821,10 @@ const worker = {
         await runErrorClassification(env.DB)
           .then((r) => console.log(`Error classification: ${r.classified} classified, ${r.services_affected} services`))
           .catch((err) => console.error("Error classification failed:", err));
+        // Phase 5c: version checks (30 per hour, full cycle ~17h)
+        await runVersionChecks(env.DB, 30)
+          .then((r) => console.log(`Version check: ${r.checked} checked, ${r.updated} updated, ${r.breaking_changes} breaking`))
+          .catch((err) => console.error("Version check failed:", err));
         // Phase 6: daily benchmark at UTC 0
         const hour = new Date().getUTCHours();
         if (hour === 0) {
