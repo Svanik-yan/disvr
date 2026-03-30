@@ -315,6 +315,39 @@ app.get("/api/deprecations", async (c) => {
   return c.json({ success: true, data: overview });
 });
 
+// ─── Install Score API ───
+
+app.get("/api/install/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+  const row = await c.env.DB
+    .prepare(
+      `SELECT install_score, install_difficulty, install_details FROM health_summary WHERE service_id = ?`
+    )
+    .bind(serviceId)
+    .first<{ install_score: number | null; install_difficulty: string | null; install_details: string | null }>();
+
+  if (!row || row.install_score === null) {
+    return c.json({ error: "not_found", message: "No install data for this service" }, 404);
+  }
+
+  let details: Record<string, any> = {};
+  try {
+    details = row.install_details ? JSON.parse(row.install_details) : {};
+  } catch {
+    details = {};
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      service_id: serviceId,
+      install_score: row.install_score,
+      install_difficulty: row.install_difficulty,
+      details,
+    },
+  });
+});
+
 // ─── Co-occurrence API ───
 
 app.get("/api/cooccurrence/:serviceId", async (c) => {

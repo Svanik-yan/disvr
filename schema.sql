@@ -197,6 +197,9 @@ CREATE TABLE IF NOT EXISTS health_summary (
   uptime_30d REAL DEFAULT 0,
   avg_response_ms INTEGER,
   last_check_at TEXT,
+  install_score INTEGER DEFAULT NULL,
+  install_difficulty TEXT DEFAULT NULL,
+  install_details TEXT DEFAULT NULL,
   updated_at TEXT DEFAULT (datetime('now'))
 );
 

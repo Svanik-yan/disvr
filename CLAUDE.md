@@ -54,6 +54,7 @@ src/
 ├── health.ts         # Automated health checks (GitHub, npm, PyPI, endpoint)
 ├── cooccurrence.ts   # Tool co-occurrence knowledge graph
 ├── alternatives.ts   # Deprecation detection & alternative recommendations
+├── install-check.ts  # Install score: npm/pypi installability, env docs, difficulty rating
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -70,7 +71,8 @@ test/
 ├── crawl.test.ts     # 7 tests
 ├── health.test.ts    # 28 tests
 ├── cooccurrence.test.ts # co-occurrence tests
-└── alternatives.test.ts # deprecation & alternatives tests
+├── alternatives.test.ts # deprecation & alternatives tests
+└── install-check.test.ts # install score tests
 ```
 
 ## Routes
@@ -93,6 +95,7 @@ test/
 | GET | /api/health/:serviceId | No | Single service health details |
 | GET | /api/alternatives/:serviceId | No | Healthy alternatives for degraded/dead tools |
 | GET | /api/deprecations | No | Deprecation overview |
+| GET | /api/install/:serviceId | No | Install score & difficulty details |
 | GET | /api/cooccurrence/:serviceId | No | Tool co-occurrence data |
 | POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
 | POST | /admin/reindex | Admin | Reindex into Vectorize |
