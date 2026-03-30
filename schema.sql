@@ -208,8 +208,25 @@ CREATE TABLE IF NOT EXISTS health_summary (
   call_success_rate REAL DEFAULT NULL,
   probe_type TEXT DEFAULT NULL,
   last_probe_details TEXT DEFAULT NULL,
+  error_distribution TEXT DEFAULT NULL,
+  primary_error_type TEXT DEFAULT NULL,
+  error_count_30d INTEGER DEFAULT 0,
   updated_at TEXT DEFAULT (datetime('now'))
 );
+
+-- ─── Error Classifications ───
+
+CREATE TABLE IF NOT EXISTS error_classifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  service_id TEXT NOT NULL,
+  error_type TEXT NOT NULL,
+  source TEXT NOT NULL,
+  details TEXT,
+  occurred_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_error_class_service ON error_classifications(service_id, error_type);
+CREATE INDEX IF NOT EXISTS idx_error_class_time ON error_classifications(occurred_at);
 
 -- ─── Tool Co-occurrence Graph ───
 
