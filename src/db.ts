@@ -946,17 +946,17 @@ export async function cleanupOldHealthChecks(
 export async function getHealthSummaryByIds(
   db: D1Database,
   serviceIds: string[]
-): Promise<Map<string, { status: string; uptime_30d: number; last_check_at: string | null; install_score: number | null; install_difficulty: string | null }>> {
+): Promise<Map<string, { status: string; uptime_30d: number; last_check_at: string | null; install_score: number | null; install_difficulty: string | null; call_success_rate: number | null; probe_type: string | null }>> {
   if (serviceIds.length === 0) return new Map();
   const placeholders = serviceIds.map(() => "?").join(",");
   const rows = await db
     .prepare(
-      `SELECT service_id, overall_status, uptime_30d, last_check_at, install_score, install_difficulty FROM health_summary WHERE service_id IN (${placeholders})`
+      `SELECT service_id, overall_status, uptime_30d, last_check_at, install_score, install_difficulty, call_success_rate, probe_type FROM health_summary WHERE service_id IN (${placeholders})`
     )
     .bind(...serviceIds)
     .all();
 
-  const result = new Map<string, { status: string; uptime_30d: number; last_check_at: string | null; install_score: number | null; install_difficulty: string | null }>();
+  const result = new Map<string, { status: string; uptime_30d: number; last_check_at: string | null; install_score: number | null; install_difficulty: string | null; call_success_rate: number | null; probe_type: string | null }>();
   for (const row of rows.results ?? []) {
     result.set(row.service_id as string, {
       status: row.overall_status as string,
@@ -964,6 +964,8 @@ export async function getHealthSummaryByIds(
       last_check_at: (row.last_check_at as string) ?? null,
       install_score: (row.install_score as number) ?? null,
       install_difficulty: (row.install_difficulty as string) ?? null,
+      call_success_rate: (row.call_success_rate as number) ?? null,
+      probe_type: (row.probe_type as string) ?? null,
     });
   }
   return result;

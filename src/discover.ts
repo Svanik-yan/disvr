@@ -184,6 +184,8 @@ export async function searchServices(
               last_checked: healthInfo.last_check_at,
               ...(healthInfo.install_score !== null ? { install_score: healthInfo.install_score } : {}),
               ...(healthInfo.install_difficulty ? { install_difficulty: healthInfo.install_difficulty } : {}),
+              ...(healthInfo.call_success_rate !== null ? { call_success_rate: healthInfo.call_success_rate } : {}),
+              ...(healthInfo.probe_type ? { probe_type: healthInfo.probe_type } : {}),
             },
           }
         : {}),
@@ -202,7 +204,17 @@ export async function searchServices(
     };
   });
 
-  // Step 5: Tiebreaker — when value_scores are close, prefer easier install
+  // Step 5: Apply call_success_rate adjustments + tiebreaker
+  for (const rec of recommendations) {
+    const rate = rec.health?.call_success_rate;
+    if (rate !== undefined && rate !== null) {
+      if (rate >= 0.8) {
+        rec.value_score = Math.round(Math.min(1, rec.value_score + 0.1) * 100) / 100;
+      } else if (rate < 0.3) {
+        rec.value_score = Math.round((rec.value_score * 0.5) * 100) / 100;
+      }
+    }
+  }
   recommendations.sort((a, b) => {
     const diff = b.value_score - a.value_score;
     if (Math.abs(diff) < 0.01) {

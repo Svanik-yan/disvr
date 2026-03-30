@@ -232,12 +232,15 @@ export interface HealthSummary {
   install_score: number | null;
   install_difficulty: string | null;
   install_details: Record<string, any> | null;
+  call_success_rate: number | null;
+  probe_type: 'mcp' | 'http' | 'none' | null;
+  last_probe_details: Record<string, any> | null;
   updated_at: string;
 }
 
 export interface HealthCheckResult {
   service_id: string;
-  check_type: 'github' | 'npm' | 'pypi' | 'endpoint';
+  check_type: 'github' | 'npm' | 'pypi' | 'endpoint' | 'mcp_handshake' | 'api_probe';
   status: 'alive' | 'dead' | 'stale' | 'timeout' | 'error';
   response_time_ms: number;
   details: Record<string, any>;

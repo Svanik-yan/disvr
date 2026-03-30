@@ -200,6 +200,9 @@ CREATE TABLE IF NOT EXISTS health_summary (
   install_score INTEGER DEFAULT NULL,
   install_difficulty TEXT DEFAULT NULL,
   install_details TEXT DEFAULT NULL,
+  call_success_rate REAL DEFAULT NULL,
+  probe_type TEXT DEFAULT NULL,
+  last_probe_details TEXT DEFAULT NULL,
   updated_at TEXT DEFAULT (datetime('now'))
 );
 
