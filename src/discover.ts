@@ -4,6 +4,7 @@ import type {
   DiscoverResponse, SpendSummary,
 } from "./types.js";
 import { getServicesByIds, searchFTS, getServiceSignals, getHealthSummaryByIds } from "./db.js";
+import { getBatchCooccurrences } from "./cooccurrence.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -161,22 +162,30 @@ export async function searchServices(
 
   // Step 4: Build recommendations with spend intelligence + health info
   const topIds = topN.map((item) => item.service.id);
-  const healthMap = await getHealthSummaryByIds(env.DB, topIds);
+  const [healthMap, cooccurrenceMap] = await Promise.all([
+    getHealthSummaryByIds(env.DB, topIds),
+    getBatchCooccurrences(env.DB, topIds),
+  ]);
 
   const recommendations: Recommendation[] = topN.map((item) => {
     const rec = buildRecommendation(item.service, item.similarity, item.valueScore, request);
     const healthInfo = healthMap.get(item.service.id);
-    if (healthInfo?.last_check_at) {
-      return {
-        ...rec,
-        health: {
-          status: healthInfo.status,
-          uptime_30d: healthInfo.uptime_30d,
-          last_checked: healthInfo.last_check_at,
-        },
-      };
-    }
-    return rec;
+    const coItems = cooccurrenceMap.get(item.service.id);
+    return {
+      ...rec,
+      ...(healthInfo?.last_check_at
+        ? {
+            health: {
+              status: healthInfo.status,
+              uptime_30d: healthInfo.uptime_30d,
+              last_checked: healthInfo.last_check_at,
+            },
+          }
+        : {}),
+      ...(coItems && coItems.length > 0
+        ? { commonly_used_with: coItems }
+        : {}),
+    };
   });
 
   // Step 5: Spend summary

@@ -5,6 +5,7 @@ import { searchServices } from "./discover.js";
 import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats, getServiceDetail, getServiceHealth, getHealthOverview, cleanupOldHealthChecks } from "./db.js";
 import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, embedAndIndex } from "./crawl.js";
 import { runHealthChecks } from "./health.js";
+import { runCooccurrenceAggregation, getCooccurrences } from "./cooccurrence.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
@@ -300,6 +301,14 @@ app.get("/api/health/:serviceId", async (c) => {
   return c.json({ success: true, data: health });
 });
 
+// ─── Co-occurrence API ───
+
+app.get("/api/cooccurrence/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+  const results = await getCooccurrences(c.env.DB, serviceId);
+  return c.json({ success: true, data: results });
+});
+
 // Admin auth middleware — requires ADMIN_KEY env var
 app.use("/admin/*", async (c, next) => {
   const adminKey = (c.env as any).ADMIN_KEY;
@@ -396,6 +405,12 @@ app.post("/admin/health-check", async (c) => {
   });
 });
 
+// Admin: trigger co-occurrence aggregation
+app.post("/admin/cooccurrence", async (c) => {
+  const result = await runCooccurrenceAggregation(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
 // MCP Server endpoint (Streamable HTTP via Durable Objects)
 const mcpHandler = DisvrMcpAgent.serve("/mcp", { binding: "MCP_AGENT" });
 
@@ -432,6 +447,8 @@ const worker = {
         await cleanupOldHealthChecks(env.DB).catch((err) => console.error("Health check cleanup failed:", err));
         // Phase 4: aggregate daily stats + passive signals (idempotent — safe to run every hour)
         await runSignalAggregation(env.DB).catch((err) => console.error("Signal aggregation failed:", err));
+        // Phase 5: co-occurrence aggregation
+        await runCooccurrenceAggregation(env.DB).catch((err) => console.error("Co-occurrence aggregation failed:", err));
         // Phase 5: auto-enrich README metadata at UTC 1:00 (30 services/day)
         const hour = new Date().getUTCHours();
         if (hour === 1) {
