@@ -53,6 +53,7 @@ src/
 ├── crawl.ts          # Multi-source crawlers (Smithery, GitHub, MCP Registry) + embedding
 ├── health.ts         # Automated health checks (GitHub, npm, PyPI, endpoint)
 ├── cooccurrence.ts   # Tool co-occurrence knowledge graph
+├── alternatives.ts   # Deprecation detection & alternative recommendations
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -68,7 +69,8 @@ test/
 ├── api.test.ts       # 24 tests
 ├── crawl.test.ts     # 7 tests
 ├── health.test.ts    # 28 tests
-└── cooccurrence.test.ts # co-occurrence tests
+├── cooccurrence.test.ts # co-occurrence tests
+└── alternatives.test.ts # deprecation & alternatives tests
 ```
 
 ## Routes
@@ -89,6 +91,8 @@ test/
 | POST | /api/register | No | Generate API key |
 | GET | /api/health/summary | No | Global health overview |
 | GET | /api/health/:serviceId | No | Single service health details |
+| GET | /api/alternatives/:serviceId | No | Healthy alternatives for degraded/dead tools |
+| GET | /api/deprecations | No | Deprecation overview |
 | GET | /api/cooccurrence/:serviceId | No | Tool co-occurrence data |
 | POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
 | POST | /admin/reindex | Admin | Reindex into Vectorize |

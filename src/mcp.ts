@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { searchServices } from "./discover.js";
 import { getServiceCount, getServiceDetail, getServicesPaginated, insertReport } from "./db.js";
+import { getAlternatives } from "./alternatives.js";
 import type { Env } from "./types.js";
 
 export class DisvrMcpAgent extends McpAgent<Env> {
@@ -55,6 +56,7 @@ export class DisvrMcpAgent extends McpAgent<Env> {
                   ...(r.install ? { install: r.install } : {}),
                   ...(r.health ? { health: r.health } : {}),
                   ...(r.commonly_used_with?.length ? { commonly_used_with: r.commonly_used_with } : {}),
+                  ...(r.deprecation_warning ? { deprecation_warning: r.deprecation_warning } : {}),
                 })),
               }, null, 2),
             },
@@ -197,6 +199,34 @@ export class DisvrMcpAgent extends McpAgent<Env> {
                 total: result.total,
                 page,
                 limit: safeLimit,
+              }, null, 2),
+            },
+          ],
+        };
+      }
+    );
+
+    // ─── Tool 5: get_alternatives ───
+    // Find healthy replacements for degraded/dead tools
+
+    this.server.tool(
+      "get_alternatives",
+      "Get healthy alternatives for a degraded or dead tool. Returns empty if the tool is healthy.",
+      {
+        service_id: z.string().describe("The service ID to find alternatives for"),
+      },
+      async (params) => {
+        const alternatives = await getAlternatives(this.env.DB, params.service_id);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                service_id: params.service_id,
+                alternatives,
+                message: alternatives.length > 0
+                  ? "This tool is unhealthy. Here are recommended replacements."
+                  : "This tool is healthy or has no known alternatives.",
               }, null, 2),
             },
           ],

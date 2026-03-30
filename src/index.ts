@@ -6,6 +6,7 @@ import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCa
 import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, embedAndIndex } from "./crawl.js";
 import { runHealthChecks } from "./health.js";
 import { runCooccurrenceAggregation, getCooccurrences } from "./cooccurrence.js";
+import { getAlternatives, getDeprecationOverview } from "./alternatives.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
@@ -299,6 +300,19 @@ app.get("/api/health/:serviceId", async (c) => {
     return c.json({ error: "not_found", message: "No health data for this service" }, 404);
   }
   return c.json({ success: true, data: health });
+});
+
+// ─── Alternatives & Deprecation API ───
+
+app.get("/api/alternatives/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+  const alternatives = await getAlternatives(c.env.DB, serviceId);
+  return c.json({ success: true, data: alternatives });
+});
+
+app.get("/api/deprecations", async (c) => {
+  const overview = await getDeprecationOverview(c.env.DB);
+  return c.json({ success: true, data: overview });
 });
 
 // ─── Co-occurrence API ───
