@@ -142,6 +142,12 @@ export interface Recommendation {
   reason: string;
   /** 安装信息（可选，有则提供） */
   install?: InstallInfo;
+  /** 健康状态（可选，有则提供） */
+  health?: {
+    status: string;
+    uptime_30d: number;
+    last_checked: string;
+  };
 }
 
 export interface DiscoverResponse {
@@ -195,6 +201,39 @@ export interface ApiKeyRecord {
   tier: string;
   daily_usage: number;
   last_reset: string;
+}
+
+// ─── Health Check Types ───
+
+export interface HealthCheck {
+  id: number;
+  service_id: string;
+  check_type: 'github' | 'npm' | 'pypi' | 'endpoint';
+  status: 'alive' | 'dead' | 'stale' | 'timeout' | 'error';
+  response_time_ms: number;
+  details: Record<string, any>;
+  checked_at: string;
+}
+
+export interface HealthSummary {
+  service_id: string;
+  overall_status: 'healthy' | 'degraded' | 'dead' | 'unknown';
+  github_status: string | null;
+  package_status: string | null;
+  endpoint_status: string | null;
+  last_updated: string | null;
+  uptime_30d: number;
+  avg_response_ms: number | null;
+  last_check_at: string | null;
+  updated_at: string;
+}
+
+export interface HealthCheckResult {
+  service_id: string;
+  check_type: 'github' | 'npm' | 'pypi' | 'endpoint';
+  status: 'alive' | 'dead' | 'stale' | 'timeout' | 'error';
+  response_time_ms: number;
+  details: Record<string, any>;
 }
 
 // ─── Converters ───

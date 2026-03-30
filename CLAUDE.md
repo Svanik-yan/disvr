@@ -51,6 +51,7 @@ src/
 ├── discover.ts       # Core search + ranking engine
 ├── db.ts             # D1 CRUD, stats, API key management
 ├── crawl.ts          # Multi-source crawlers (Smithery, GitHub, MCP Registry) + embedding
+├── health.ts         # Automated health checks (GitHub, npm, PyPI, endpoint)
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -64,7 +65,8 @@ test/
 ├── discover.test.ts  # 12 tests
 ├── db.test.ts        # 17 tests
 ├── api.test.ts       # 24 tests
-└── crawl.test.ts     # 7 tests
+├── crawl.test.ts     # 7 tests
+└── health.test.ts    # 28 tests
 ```
 
 ## Routes
@@ -83,6 +85,8 @@ test/
 | GET | /api/stats | No | System statistics |
 | GET | /api/analytics | No | Request analytics (daily calls, top queries) |
 | POST | /api/register | No | Generate API key |
+| GET | /api/health/summary | No | Global health overview |
+| GET | /api/health/:serviceId | No | Single service health details |
 | POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
 | POST | /admin/reindex | Admin | Reindex into Vectorize |
 | POST | /admin/rebuild-fts | Admin | Rebuild FTS5 index |

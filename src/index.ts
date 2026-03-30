@@ -2,8 +2,9 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Env, DiscoverRequest, CallReport } from "./types.js";
 import { searchServices } from "./discover.js";
-import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats, getServiceDetail } from "./db.js";
-import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, runHealthChecks, embedAndIndex } from "./crawl.js";
+import { validateApiKey, incrementUsage, getRateLimit, getServiceCount, insertCallReport, getServicesPaginated, getSystemStats, createApiKey, getKeyCountByEmail, logRequest, getRequestStats, aggregateDailyStats, getServiceDetail, getServiceHealth, getHealthOverview, cleanupOldHealthChecks } from "./db.js";
+import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, embedAndIndex } from "./crawl.js";
+import { runHealthChecks } from "./health.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
@@ -283,6 +284,22 @@ app.post("/api/register", async (c) => {
   });
 });
 
+// ─── Health API: Public Endpoints ───
+
+app.get("/api/health/summary", async (c) => {
+  const overview = await getHealthOverview(c.env.DB);
+  return c.json({ success: true, data: overview });
+});
+
+app.get("/api/health/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+  const health = await getServiceHealth(c.env.DB, serviceId);
+  if (!health.summary) {
+    return c.json({ error: "not_found", message: "No health data for this service" }, 404);
+  }
+  return c.json({ success: true, data: health });
+});
+
 // Admin auth middleware — requires ADMIN_KEY env var
 app.use("/admin/*", async (c, next) => {
   const adminKey = (c.env as any).ADMIN_KEY;
@@ -367,8 +384,16 @@ app.post("/admin/enrich-readme", async (c) => {
 
 // Admin: run health checks
 app.post("/admin/health-check", async (c) => {
-  const count = await runHealthChecks(c.env);
-  return c.json({ status: "ok", services_checked: count });
+  const githubToken = (c.env as any).GITHUB_TOKEN;
+  const [healthResult, cleanedCount] = await Promise.all([
+    runHealthChecks(c.env.DB, 50, githubToken),
+    cleanupOldHealthChecks(c.env.DB),
+  ]);
+  return c.json({
+    status: "ok",
+    ...healthResult,
+    old_records_cleaned: cleanedCount,
+  });
 });
 
 // MCP Server endpoint (Streamable HTTP via Durable Objects)
@@ -401,8 +426,10 @@ const worker = {
         ]);
         // Phase 2: enrich with GitHub stars
         await enrichGitHubStars(env).catch((err) => console.error("GitHub stars enrichment failed:", err));
-        // Phase 3: run health checks
-        await runHealthChecks(env).catch((err) => console.error("Health checks failed:", err));
+        // Phase 3: run health checks + cleanup
+        const githubToken = (env as any).GITHUB_TOKEN;
+        await runHealthChecks(env.DB, 50, githubToken).catch((err) => console.error("Health checks failed:", err));
+        await cleanupOldHealthChecks(env.DB).catch((err) => console.error("Health check cleanup failed:", err));
         // Phase 4: aggregate daily stats + passive signals (idempotent — safe to run every hour)
         await runSignalAggregation(env.DB).catch((err) => console.error("Signal aggregation failed:", err));
         // Phase 5: auto-enrich README metadata at UTC 1:00 (30 services/day)

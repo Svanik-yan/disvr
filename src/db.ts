@@ -1,4 +1,4 @@
-import type { Service, ServiceRow, ApiKeyRecord, CallReport } from "./types.js";
+import type { Service, ServiceRow, ApiKeyRecord, CallReport, HealthCheckResult, HealthSummary, HealthCheck } from "./types.js";
 import { rowToService } from "./types.js";
 
 // ─── Service CRUD ───
@@ -766,4 +766,203 @@ export async function getServiceReportStats(
     success_rate: (row?.success_rate as number) ?? 0,
     avg_latency_ms: (row?.avg_latency_ms as number) ?? null,
   };
+}
+
+// ─── Health Check DB Functions ───
+
+export async function insertHealthCheck(
+  db: D1Database,
+  result: HealthCheckResult
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO health_checks (service_id, check_type, status, response_time_ms, details, checked_at)
+       VALUES (?, ?, ?, ?, ?, datetime('now'))`
+    )
+    .bind(
+      result.service_id,
+      result.check_type,
+      result.status,
+      result.response_time_ms,
+      JSON.stringify(result.details)
+    )
+    .run();
+}
+
+export async function upsertHealthSummary(
+  db: D1Database,
+  serviceId: string,
+  summary: {
+    overall_status: string;
+    github_status?: string;
+    package_status?: string;
+    endpoint_status?: string;
+    last_updated?: string;
+    uptime_30d: number;
+    avg_response_ms?: number;
+  }
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO health_summary (service_id, overall_status, github_status, package_status, endpoint_status, last_updated, uptime_30d, avg_response_ms, last_check_at, updated_at)
+       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, datetime('now'), datetime('now'))
+       ON CONFLICT(service_id) DO UPDATE SET
+         overall_status = ?2,
+         github_status = ?3,
+         package_status = ?4,
+         endpoint_status = ?5,
+         last_updated = COALESCE(?6, health_summary.last_updated),
+         uptime_30d = ?7,
+         avg_response_ms = ?8,
+         last_check_at = datetime('now'),
+         updated_at = datetime('now')`
+    )
+    .bind(
+      serviceId,
+      summary.overall_status,
+      summary.github_status ?? null,
+      summary.package_status ?? null,
+      summary.endpoint_status ?? null,
+      summary.last_updated ?? null,
+      summary.uptime_30d,
+      summary.avg_response_ms ?? null
+    )
+    .run();
+}
+
+export async function updateServiceReliability(
+  db: D1Database,
+  serviceId: string,
+  reliability: number
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE services SET uptime_30d = ?1, last_health_check = datetime('now'), updated_at = datetime('now') WHERE id = ?2`
+    )
+    .bind(reliability, serviceId)
+    .run();
+}
+
+export async function getServiceHealth(
+  db: D1Database,
+  serviceId: string
+): Promise<{ summary: HealthSummary | null; recent_checks: HealthCheck[] }> {
+  const [summaryRow, checksRows] = await Promise.all([
+    db
+      .prepare("SELECT * FROM health_summary WHERE service_id = ?")
+      .bind(serviceId)
+      .first(),
+    db
+      .prepare(
+        `SELECT * FROM health_checks WHERE service_id = ? ORDER BY checked_at DESC LIMIT 10`
+      )
+      .bind(serviceId)
+      .all(),
+  ]);
+
+  const summary: HealthSummary | null = summaryRow
+    ? {
+        service_id: summaryRow.service_id as string,
+        overall_status: summaryRow.overall_status as HealthSummary["overall_status"],
+        github_status: (summaryRow.github_status as string) ?? null,
+        package_status: (summaryRow.package_status as string) ?? null,
+        endpoint_status: (summaryRow.endpoint_status as string) ?? null,
+        last_updated: (summaryRow.last_updated as string) ?? null,
+        uptime_30d: (summaryRow.uptime_30d as number) ?? 0,
+        avg_response_ms: (summaryRow.avg_response_ms as number) ?? null,
+        last_check_at: (summaryRow.last_check_at as string) ?? null,
+        updated_at: (summaryRow.updated_at as string) ?? "",
+      }
+    : null;
+
+  const recent_checks: HealthCheck[] = (checksRows.results ?? []).map((row: any) => ({
+    id: row.id,
+    service_id: row.service_id,
+    check_type: row.check_type,
+    status: row.status,
+    response_time_ms: row.response_time_ms,
+    details: typeof row.details === "string" ? JSON.parse(row.details) : (row.details ?? {}),
+    checked_at: row.checked_at,
+  }));
+
+  return { summary, recent_checks };
+}
+
+export async function getHealthOverview(
+  db: D1Database
+): Promise<{
+  total: number;
+  healthy: number;
+  degraded: number;
+  dead: number;
+  unknown: number;
+  last_full_scan: string | null;
+}> {
+  const [totalRow, statusRows, lastScanRow] = await Promise.all([
+    db.prepare("SELECT COUNT(*) as c FROM services").first<{ c: number }>(),
+    db
+      .prepare(
+        `SELECT overall_status, COUNT(*) as c FROM health_summary GROUP BY overall_status`
+      )
+      .all<{ overall_status: string; c: number }>(),
+    db
+      .prepare(
+        `SELECT MIN(last_check_at) as oldest FROM health_summary`
+      )
+      .first<{ oldest: string | null }>(),
+  ]);
+
+  const total = totalRow?.c ?? 0;
+  const statusMap: Record<string, number> = {};
+  for (const row of statusRows.results ?? []) {
+    statusMap[row.overall_status] = row.c;
+  }
+
+  const checked = Object.values(statusMap).reduce((a, b) => a + b, 0);
+
+  return {
+    total,
+    healthy: statusMap["healthy"] ?? 0,
+    degraded: statusMap["degraded"] ?? 0,
+    dead: statusMap["dead"] ?? 0,
+    unknown: total - checked + (statusMap["unknown"] ?? 0),
+    last_full_scan: lastScanRow?.oldest ?? null,
+  };
+}
+
+export async function cleanupOldHealthChecks(
+  db: D1Database,
+  daysToKeep: number = 30
+): Promise<number> {
+  const result = await db
+    .prepare(
+      `DELETE FROM health_checks WHERE checked_at < datetime('now', '-' || ? || ' days')`
+    )
+    .bind(daysToKeep)
+    .run();
+  return result.meta?.changes ?? 0;
+}
+
+export async function getHealthSummaryByIds(
+  db: D1Database,
+  serviceIds: string[]
+): Promise<Map<string, { status: string; uptime_30d: number; last_check_at: string | null }>> {
+  if (serviceIds.length === 0) return new Map();
+  const placeholders = serviceIds.map(() => "?").join(",");
+  const rows = await db
+    .prepare(
+      `SELECT service_id, overall_status, uptime_30d, last_check_at FROM health_summary WHERE service_id IN (${placeholders})`
+    )
+    .bind(...serviceIds)
+    .all();
+
+  const result = new Map<string, { status: string; uptime_30d: number; last_check_at: string | null }>();
+  for (const row of rows.results ?? []) {
+    result.set(row.service_id as string, {
+      status: row.overall_status as string,
+      uptime_30d: (row.uptime_30d as number) ?? 0,
+      last_check_at: (row.last_check_at as string) ?? null,
+    });
+  }
+  return result;
 }

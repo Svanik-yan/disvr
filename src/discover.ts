@@ -3,7 +3,7 @@ import type {
   Env, Service, DiscoverRequest, Recommendation,
   DiscoverResponse, SpendSummary,
 } from "./types.js";
-import { getServicesByIds, searchFTS, getServiceSignals } from "./db.js";
+import { getServicesByIds, searchFTS, getServiceSignals, getHealthSummaryByIds } from "./db.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -159,10 +159,25 @@ export async function searchServices(
   const ranked = rankServices(filtered, request.need, signals);
   const topN = ranked.slice(0, TOP_N_RESULTS);
 
-  // Step 4: Build recommendations with spend intelligence
-  const recommendations: Recommendation[] = topN.map((item) =>
-    buildRecommendation(item.service, item.similarity, item.valueScore, request)
-  );
+  // Step 4: Build recommendations with spend intelligence + health info
+  const topIds = topN.map((item) => item.service.id);
+  const healthMap = await getHealthSummaryByIds(env.DB, topIds);
+
+  const recommendations: Recommendation[] = topN.map((item) => {
+    const rec = buildRecommendation(item.service, item.similarity, item.valueScore, request);
+    const healthInfo = healthMap.get(item.service.id);
+    if (healthInfo?.last_check_at) {
+      return {
+        ...rec,
+        health: {
+          status: healthInfo.status,
+          uptime_30d: healthInfo.uptime_30d,
+          last_checked: healthInfo.last_check_at,
+        },
+      };
+    }
+    return rec;
+  });
 
   // Step 5: Spend summary
   const spendSummary = buildSpendSummary(ranked, request);
