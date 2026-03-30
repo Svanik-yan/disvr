@@ -148,6 +148,8 @@ export interface Recommendation {
     uptime_30d: number;
     last_checked: string;
   };
+  /** 常见搭配工具（可选，有则提供） */
+  commonly_used_with?: CooccurrenceResult[];
 }
 
 export interface DiscoverResponse {
@@ -234,6 +236,19 @@ export interface HealthCheckResult {
   status: 'alive' | 'dead' | 'stale' | 'timeout' | 'error';
   response_time_ms: number;
   details: Record<string, any>;
+}
+
+// ─── Co-occurrence Types ───
+
+export interface CooccurrencePair {
+  service_id_a: string;
+  service_id_b: string;
+}
+
+export interface CooccurrenceResult {
+  service_id: string;
+  name: string;
+  co_count: number;
 }
 
 // ─── Converters ───

@@ -52,6 +52,7 @@ src/
 ├── db.ts             # D1 CRUD, stats, API key management
 ├── crawl.ts          # Multi-source crawlers (Smithery, GitHub, MCP Registry) + embedding
 ├── health.ts         # Automated health checks (GitHub, npm, PyPI, endpoint)
+├── cooccurrence.ts   # Tool co-occurrence knowledge graph
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -66,7 +67,8 @@ test/
 ├── db.test.ts        # 17 tests
 ├── api.test.ts       # 24 tests
 ├── crawl.test.ts     # 7 tests
-└── health.test.ts    # 28 tests
+├── health.test.ts    # 28 tests
+└── cooccurrence.test.ts # co-occurrence tests
 ```
 
 ## Routes
@@ -87,11 +89,13 @@ test/
 | POST | /api/register | No | Generate API key |
 | GET | /api/health/summary | No | Global health overview |
 | GET | /api/health/:serviceId | No | Single service health details |
+| GET | /api/cooccurrence/:serviceId | No | Tool co-occurrence data |
 | POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
 | POST | /admin/reindex | Admin | Reindex into Vectorize |
 | POST | /admin/rebuild-fts | Admin | Rebuild FTS5 index |
 | POST | /admin/enrich | Admin | Enrich GitHub stars |
 | POST | /admin/health-check | Admin | Run health checks |
+| POST | /admin/cooccurrence | Admin | Trigger co-occurrence aggregation |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
 ## Deployment
