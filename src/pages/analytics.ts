@@ -51,6 +51,7 @@ tailwind.config = {
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/registry">Registry</a>
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/explorer">Explorer</a>
       <a class="text-teal-300 border-b-2 border-teal-300 pb-1" href="/analytics">Analytics</a>
+      <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/benchmark">Benchmark</a>
       <a class="text-slate-400 hover:text-slate-200 transition-colors" href="/keys">Get API Key</a>
     </div>
   </div>
