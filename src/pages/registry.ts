@@ -95,14 +95,38 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
         <input id="search-input" type="text" placeholder="Search services by name or description..."
           class="w-full bg-surface-container-high border border-outline-variant/20 rounded-xl pl-12 pr-4 py-3 text-on-surface placeholder-on-surface-variant/60 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/30 transition-all"/>
       </div>
-      <select id="sort-select" class="bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary/50 min-w-[160px]">
+      <select id="sort-select" class="bg-surface-container-high border border-outline-variant/20 rounded-xl px-4 py-3 text-on-surface text-sm focus:outline-none focus:border-primary/50 min-w-[140px]">
         <option value="reputation">Sort: Reputation</option>
         <option value="name">Sort: Name</option>
         <option value="calls">Sort: Most Used</option>
         <option value="price">Sort: Price (Low)</option>
+        <option value="health">Sort: Health</option>
+        <option value="install">Sort: Install Score</option>
       </select>
     </div>
-    <div class="flex flex-wrap gap-2 mt-4" id="platform-filters">
+    <div class="flex flex-wrap gap-3 mt-4">
+      <select id="health-filter" class="bg-surface-container-high border border-outline-variant/20 rounded-lg px-3 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary/50">
+        <option value="all">Health: All</option>
+        <option value="healthy">Healthy</option>
+        <option value="degraded">Degraded</option>
+        <option value="dead">Dead</option>
+        <option value="unknown">Unknown</option>
+      </select>
+      <select id="pricing-filter" class="bg-surface-container-high border border-outline-variant/20 rounded-lg px-3 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary/50">
+        <option value="all">Pricing: All</option>
+        <option value="free">Free</option>
+        <option value="freemium">Freemium</option>
+        <option value="open_source">Open Source</option>
+        <option value="paid">Paid</option>
+      </select>
+      <select id="install-filter" class="bg-surface-container-high border border-outline-variant/20 rounded-lg px-3 py-1.5 text-on-surface text-xs focus:outline-none focus:border-primary/50">
+        <option value="all">Install: All</option>
+        <option value="easy">Easy</option>
+        <option value="moderate">Moderate</option>
+        <option value="hard">Hard</option>
+      </select>
+    </div>
+    <div class="flex flex-wrap gap-2 mt-3" id="platform-filters">
       <button class="platform-btn active text-xs font-bold px-4 py-1.5 rounded-full border border-outline-variant/20 transition-all hover:bg-white/5" data-platform="all">All Platforms</button>
     </div>
   </div>
@@ -147,6 +171,9 @@ let currentPage = 1;
 let currentSearch = '';
 let currentPlatform = 'all';
 let currentSort = 'reputation';
+let currentHealth = 'all';
+let currentPricing = 'all';
+let currentInstall = 'all';
 let totalPages = 1;
 let debounceTimer = null;
 
@@ -175,6 +202,24 @@ document.getElementById('sort-select').addEventListener('change', function(e) {
   loadServices();
 });
 
+document.getElementById('health-filter').addEventListener('change', function(e) {
+  currentHealth = e.target.value;
+  currentPage = 1;
+  loadServices();
+});
+
+document.getElementById('pricing-filter').addEventListener('change', function(e) {
+  currentPricing = e.target.value;
+  currentPage = 1;
+  loadServices();
+});
+
+document.getElementById('install-filter').addEventListener('change', function(e) {
+  currentInstall = e.target.value;
+  currentPage = 1;
+  loadServices();
+});
+
 function selectPlatform(platform) {
   currentPlatform = platform;
   currentPage = 1;
@@ -189,6 +234,27 @@ function changePage(delta) {
   loadServices();
 }
 
+function healthDot(status) {
+  var colors = { healthy: 'bg-green-400', degraded: 'bg-yellow-400', dead: 'bg-red-400', unknown: 'bg-slate-500' };
+  var color = colors[status] || colors.unknown;
+  return '<span class="w-2 h-2 rounded-full ' + color + ' inline-block" title="' + (status || 'unknown') + '"></span>';
+}
+
+function pricingBadge(model) {
+  if (!model || model === 'unknown') return '';
+  var colors = { free: 'bg-green-500/15 text-green-400 border-green-500/20', open_source: 'bg-green-500/15 text-green-400 border-green-500/20', freemium: 'bg-blue-500/15 text-blue-400 border-blue-500/20', paid: 'bg-amber-500/15 text-amber-400 border-amber-500/20' };
+  var c = colors[model] || 'bg-slate-500/15 text-slate-400 border-slate-500/20';
+  var label = model === 'open_source' ? 'OSS' : model.charAt(0).toUpperCase() + model.slice(1);
+  return '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase border ' + c + '">' + label + '</span>';
+}
+
+function installBadge(difficulty) {
+  if (!difficulty) return '';
+  var colors = { easy: 'text-green-400', moderate: 'text-yellow-400', hard: 'text-red-400' };
+  var c = colors[difficulty] || 'text-slate-400';
+  return '<span class="text-[9px] font-bold uppercase ' + c + '">' + difficulty + '</span>';
+}
+
 function renderServiceCard(s) {
   var rep = s.reputation_score !== null ? s.reputation_score.toFixed(1) : 'N/A';
   var repColor = s.reputation_score >= 3.5 ? 'text-secondary' : s.reputation_score >= 2 ? 'text-primary' : 'text-on-surface-variant';
@@ -198,17 +264,28 @@ function renderServiceCard(s) {
   var caps = (s.capabilities || []).slice(0, 3);
   var successRate = s.success_rate !== null ? (s.success_rate * 100).toFixed(0) + '%' : '--';
   var latency = s.latency_p95_ms !== null ? s.latency_p95_ms + 'ms' : '--';
-  var sourceLink = s.source_url ? '<a href="' + s.source_url + '" target="_blank" class="text-secondary text-xs font-bold flex items-center gap-1 hover:underline"><span class="material-symbols-outlined text-sm">open_in_new</span>Source</a>' : '';
+  var hs = s.health_status || 'unknown';
+  var pm = s.pricing_model || null;
+  var id = s.install_difficulty || null;
+  var breakingWarning = s.recent_breaking_change ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-red-500/15 text-red-400 border border-red-500/20">Breaking</span>' : '';
 
-  return '<div class="glass-card rounded-xl p-6 hover:border-primary/30 transition-all group">' +
+  return '<a href="/registry/' + encodeURIComponent(s.id) + '" class="glass-card rounded-xl p-6 hover:border-primary/30 transition-all group block cursor-pointer">' +
     '<div class="flex justify-between items-start mb-3">' +
       '<div class="flex items-center gap-3">' +
         '<div class="w-10 h-10 rounded-lg bg-surface-container-highest border border-white/5 flex items-center justify-center">' +
           '<span class="material-symbols-outlined text-primary">widgets</span>' +
         '</div>' +
         '<div>' +
-          '<h3 class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">' + s.name + '</h3>' +
-          '<span class="text-[10px] text-on-surface-variant uppercase tracking-widest">' + s.platform + '</span>' +
+          '<div class="flex items-center gap-2">' +
+            '<h3 class="text-sm font-bold text-on-surface group-hover:text-primary transition-colors">' + s.name + '</h3>' +
+            healthDot(hs) +
+          '</div>' +
+          '<div class="flex items-center gap-2 mt-0.5">' +
+            '<span class="text-[10px] text-on-surface-variant uppercase tracking-widest">' + s.platform + '</span>' +
+            pricingBadge(pm) +
+            installBadge(id) +
+            breakingWarning +
+          '</div>' +
         '</div>' +
       '</div>' +
       '<span class="text-lg font-headline font-bold ' + repColor + '">' + rep + '</span>' +
@@ -222,8 +299,7 @@ function renderServiceCard(s) {
       '<div class="text-center"><div class="text-xs font-bold text-on-surface">' + successRate + '</div><div class="text-[9px] text-on-surface-variant uppercase">Success</div></div>' +
       '<div class="text-center"><div class="text-xs font-bold text-on-surface">' + latency + '</div><div class="text-[9px] text-on-surface-variant uppercase">Latency</div></div>' +
     '</div>' +
-    (sourceLink ? '<div class="mt-3 pt-3 border-t border-white/5 flex justify-end">' + sourceLink + '</div>' : '') +
-  '</div>';
+  '</a>';
 }
 
 async function loadServices() {
@@ -235,6 +311,9 @@ async function loadServices() {
     if (currentSearch) params.set('search', currentSearch);
     if (currentPlatform !== 'all') params.set('platform', currentPlatform);
     if (currentSort) params.set('sort', currentSort);
+    if (currentHealth !== 'all') params.set('health', currentHealth);
+    if (currentPricing !== 'all') params.set('pricing', currentPricing);
+    if (currentInstall !== 'all') params.set('install', currentInstall);
 
     var res = await fetch(API + '/api/services?' + params.toString());
     var data = await res.json();

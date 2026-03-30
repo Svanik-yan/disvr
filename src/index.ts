@@ -24,6 +24,7 @@ import { explorerPageHtml } from "./pages/explorer.js";
 import { analyticsPageHtml } from "./pages/analytics.js";
 import { keysPageHtml } from "./pages/keys.js";
 import { benchmarkPageHtml } from "./pages/benchmark.js";
+import { serviceDetailPageHtml } from "./pages/service-detail.js";
 import { FAVICON_32_B64, APPLE_TOUCH_B64, ICON_192_B64 } from "./icons.js";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -60,6 +61,10 @@ app.get("/explorer", (c) => c.html(explorerPageHtml));
 app.get("/analytics", (c) => c.html(analyticsPageHtml));
 app.get("/keys", (c) => c.html(keysPageHtml));
 app.get("/benchmark", (c) => c.html(benchmarkPageHtml));
+app.get("/registry/:serviceId", (c) => {
+  const serviceId = c.req.param("serviceId");
+  return c.html(serviceDetailPageHtml(serviceId));
+});
 
 // Health check
 app.get("/health", async (c) => {
@@ -251,7 +256,10 @@ app.get("/api/services", async (c) => {
   const search = c.req.query("search") || undefined;
   const platform = c.req.query("platform") || undefined;
   const sort = c.req.query("sort") || undefined;
-  const result = await getServicesPaginated(c.env.DB, { page, limit, search, platform, sort });
+  const health = c.req.query("health") || undefined;
+  const pricing = c.req.query("pricing") || undefined;
+  const install = c.req.query("install") || undefined;
+  const result = await getServicesPaginated(c.env.DB, { page, limit, search, platform, sort, health, pricing, install });
   return c.json(result);
 });
 
@@ -279,6 +287,148 @@ app.get("/api/services/:id", async (c) => {
       },
       platform: service.platform,
       source_url: service.source_url,
+    },
+  });
+});
+
+// ─── Aggregated Service Detail (for detail page) ───
+
+app.get("/api/services/:id/detail", async (c) => {
+  const serviceId = c.req.param("id");
+  const service = await getServiceDetail(c.env.DB, serviceId);
+  if (!service) {
+    return c.json({ error: "not_found", message: "Service not found" }, 404);
+  }
+
+  // Fetch all related data in parallel
+  const [healthData, costRow, errorsRow, versionsData, cooccurrenceData, benchmarkRows, recentErrorsRows] = await Promise.all([
+    c.env.DB.prepare(
+      `SELECT overall_status, uptime_30d, last_check_at, avg_response_ms, install_score, install_difficulty, install_details,
+              call_success_rate, probe_type, last_probe_details,
+              error_distribution, primary_error_type, error_count_30d,
+              current_version, last_version_change, recent_breaking_change
+       FROM health_summary WHERE service_id = ?`
+    ).bind(serviceId).first(),
+
+    c.env.DB.prepare(
+      `SELECT pricing_model, cost_per_call, free_tier_limit, monthly_price, pricing_details FROM services WHERE id = ?`
+    ).bind(serviceId).first(),
+
+    c.env.DB.prepare(
+      `SELECT error_distribution, primary_error_type, error_count_30d FROM health_summary WHERE service_id = ?`
+    ).bind(serviceId).first(),
+
+    c.env.DB.prepare(
+      `SELECT version, previous_version, is_breaking_change, published_at, detected_at
+       FROM version_history WHERE service_id = ? ORDER BY detected_at DESC LIMIT 10`
+    ).bind(serviceId).all(),
+
+    getCooccurrences(c.env.DB, serviceId),
+
+    c.env.DB.prepare(
+      `SELECT br.scenario_id, bs.name as scenario_name, br.rank, br.overall_score
+       FROM benchmark_results br
+       JOIN benchmark_scenarios bs ON br.scenario_id = bs.id
+       WHERE br.service_id = ?
+       ORDER BY br.created_at DESC`
+    ).bind(serviceId).all(),
+
+    c.env.DB.prepare(
+      `SELECT error_type, source, details, occurred_at FROM error_classifications
+       WHERE service_id = ? ORDER BY occurred_at DESC LIMIT 10`
+    ).bind(serviceId).all(),
+  ]);
+
+  // Parse health
+  const health = healthData ? {
+    status: (healthData as any).overall_status ?? "unknown",
+    uptime_30d: (healthData as any).uptime_30d ?? 0,
+    last_check_at: (healthData as any).last_check_at ?? null,
+    avg_response_ms: (healthData as any).avg_response_ms ?? null,
+    install_score: (healthData as any).install_score ?? null,
+    install_difficulty: (healthData as any).install_difficulty ?? null,
+    install_details: safeParseJson((healthData as any).install_details),
+    call_success_rate: (healthData as any).call_success_rate ?? null,
+    probe_type: (healthData as any).probe_type ?? null,
+    probe_details: safeParseJson((healthData as any).last_probe_details),
+  } : null;
+
+  // Parse cost
+  const cost = costRow && (costRow as any).pricing_model ? {
+    pricing_model: (costRow as any).pricing_model,
+    cost_per_call: (costRow as any).cost_per_call,
+    free_tier_limit: (costRow as any).free_tier_limit,
+    monthly_price: (costRow as any).monthly_price,
+    details: safeParseJson((costRow as any).pricing_details),
+  } : null;
+
+  // Parse errors
+  let errorDist: Record<string, any> = {};
+  try { errorDist = errorsRow && (errorsRow as any).error_distribution ? JSON.parse((errorsRow as any).error_distribution) : {}; } catch { errorDist = {}; }
+  const errors = {
+    primary_error_type: errorsRow ? (errorsRow as any).primary_error_type : null,
+    error_count_30d: errorsRow ? (errorsRow as any).error_count_30d ?? 0 : 0,
+    distribution: errorDist,
+    recent: (recentErrorsRows.results ?? []).map((r: any) => ({
+      error_type: r.error_type,
+      source: r.source,
+      details: safeParseJson(r.details),
+      occurred_at: r.occurred_at,
+    })),
+  };
+
+  // Parse versions
+  const versions = (versionsData.results ?? []).map((r: any) => ({
+    version: r.version,
+    previous_version: r.previous_version,
+    is_breaking: r.is_breaking_change === 1,
+    published_at: r.published_at,
+    detected_at: r.detected_at,
+  }));
+  const versionInfo = healthData ? {
+    current_version: (healthData as any).current_version ?? null,
+    last_version_change: (healthData as any).last_version_change ?? null,
+    recent_breaking_change: ((healthData as any).recent_breaking_change ?? 0) === 1,
+    history: versions,
+  } : { current_version: null, last_version_change: null, recent_breaking_change: false, history: versions };
+
+  // Parse benchmarks
+  const benchmarks = (benchmarkRows.results ?? []).map((r: any) => ({
+    scenario_id: r.scenario_id,
+    scenario_name: r.scenario_name,
+    rank: r.rank,
+    score: r.overall_score,
+  }));
+
+  return c.json({
+    success: true,
+    data: {
+      service: {
+        id: service.id,
+        name: service.name,
+        description: service.description,
+        type: service.service_type ?? "mcp_server",
+        platform: service.platform,
+        source_url: service.source_url,
+        capabilities: service.capabilities,
+        install: service.install ?? null,
+        required_env: service.required_env ?? [],
+        tools_provided: service.tools_provided ?? [],
+        metrics: {
+          reputation_score: service.reputation_score,
+          success_rate: service.success_rate,
+          uptime_30d: service.uptime_30d,
+          latency_p95_ms: service.latency_p95_ms,
+          total_calls: service.total_calls,
+          retry_rate: service.retry_rate,
+        },
+      },
+      health,
+      cost,
+      errors,
+      versions: versionInfo,
+      cooccurrence: cooccurrenceData,
+      benchmarks,
     },
   });
 });
@@ -950,6 +1100,11 @@ async function hashKey(key: string): Promise<string> {
   return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
+}
+
+function safeParseJson(value: string | null | undefined): Record<string, any> | null {
+  if (!value) return null;
+  try { return JSON.parse(value); } catch { return null; }
 }
 
 function secondsUntilMidnight(): number {
