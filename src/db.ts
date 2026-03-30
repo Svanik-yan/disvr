@@ -943,21 +943,41 @@ export async function cleanupOldHealthChecks(
   return result.meta?.changes ?? 0;
 }
 
+export interface HealthSummaryInfo {
+  status: string;
+  uptime_30d: number;
+  last_check_at: string | null;
+  install_score: number | null;
+  install_difficulty: string | null;
+  call_success_rate: number | null;
+  probe_type: string | null;
+  error_distribution: Record<string, any> | null;
+  primary_error_type: string | null;
+  error_count_30d: number;
+}
+
 export async function getHealthSummaryByIds(
   db: D1Database,
   serviceIds: string[]
-): Promise<Map<string, { status: string; uptime_30d: number; last_check_at: string | null; install_score: number | null; install_difficulty: string | null; call_success_rate: number | null; probe_type: string | null }>> {
+): Promise<Map<string, HealthSummaryInfo>> {
   if (serviceIds.length === 0) return new Map();
   const placeholders = serviceIds.map(() => "?").join(",");
   const rows = await db
     .prepare(
-      `SELECT service_id, overall_status, uptime_30d, last_check_at, install_score, install_difficulty, call_success_rate, probe_type FROM health_summary WHERE service_id IN (${placeholders})`
+      `SELECT service_id, overall_status, uptime_30d, last_check_at, install_score, install_difficulty, call_success_rate, probe_type, error_distribution, primary_error_type, error_count_30d FROM health_summary WHERE service_id IN (${placeholders})`
     )
     .bind(...serviceIds)
     .all();
 
-  const result = new Map<string, { status: string; uptime_30d: number; last_check_at: string | null; install_score: number | null; install_difficulty: string | null; call_success_rate: number | null; probe_type: string | null }>();
+  const result = new Map<string, HealthSummaryInfo>();
   for (const row of rows.results ?? []) {
+    let errorDist: Record<string, any> | null = null;
+    try {
+      errorDist = row.error_distribution ? JSON.parse(row.error_distribution as string) : null;
+    } catch {
+      errorDist = null;
+    }
+
     result.set(row.service_id as string, {
       status: row.overall_status as string,
       uptime_30d: (row.uptime_30d as number) ?? 0,
@@ -966,6 +986,9 @@ export async function getHealthSummaryByIds(
       install_difficulty: (row.install_difficulty as string) ?? null,
       call_success_rate: (row.call_success_rate as number) ?? null,
       probe_type: (row.probe_type as string) ?? null,
+      error_distribution: errorDist,
+      primary_error_type: (row.primary_error_type as string) ?? null,
+      error_count_30d: (row.error_count_30d as number) ?? 0,
     });
   }
   return result;

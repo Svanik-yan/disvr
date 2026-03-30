@@ -7,6 +7,8 @@ import { getServicesByIds, searchFTS, getServiceSignals, getHealthSummaryByIds }
 import { getBatchCooccurrences } from "./cooccurrence.js";
 import { getBatchAlternatives } from "./alternatives.js";
 import { matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
+import { generateRiskNote } from "./error-taxonomy.js";
+import type { ErrorType } from "./types.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -212,10 +214,22 @@ export async function searchServices(
             },
           }
         : {}),
+      ...(() => {
+        if (!healthInfo || healthInfo.error_count_30d < 3 || !healthInfo.primary_error_type) return {};
+        const riskNote = generateRiskNote(healthInfo.primary_error_type as ErrorType, healthInfo.error_count_30d);
+        if (!riskNote) return {};
+        return {
+          error_profile: {
+            primary_error: healthInfo.primary_error_type as ErrorType,
+            error_count_30d: healthInfo.error_count_30d,
+            risk_note: riskNote,
+          },
+        };
+      })(),
     };
   });
 
-  // Step 5: Apply call_success_rate adjustments + tiebreaker
+  // Step 5: Apply call_success_rate adjustments + error penalties + tiebreaker
   for (const rec of recommendations) {
     const rate = rec.health?.call_success_rate;
     if (rate !== undefined && rate !== null) {
@@ -224,6 +238,17 @@ export async function searchServices(
       } else if (rate < 0.3) {
         rec.value_score = Math.round((rec.value_score * 0.5) * 100) / 100;
       }
+    }
+
+    // Error-based ranking penalties
+    if (rec.error_profile) {
+      const { primary_error, error_count_30d } = rec.error_profile;
+      if (error_count_30d >= 10 && primary_error === "deprecated") {
+        rec.value_score = Math.round(Math.max(0, rec.value_score - 0.2) * 100) / 100;
+      } else if (error_count_30d >= 10 && primary_error === "server_error") {
+        rec.value_score = Math.round(Math.max(0, rec.value_score - 0.15) * 100) / 100;
+      }
+      // rate_limited with count >= 5: no penalty, risk_note already attached
     }
   }
   recommendations.sort((a, b) => {

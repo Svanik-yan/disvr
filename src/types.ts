@@ -180,6 +180,8 @@ export interface Recommendation {
     free_tier_limit: number | null;
     monthly_price: number | null;
   };
+  /** 错误风险画像（有错误历史时提供） */
+  error_profile?: ErrorProfile;
 }
 
 export interface DiscoverResponse {
@@ -263,6 +265,9 @@ export interface HealthSummary {
   call_success_rate: number | null;
   probe_type: 'mcp' | 'http' | 'none' | null;
   last_probe_details: Record<string, any> | null;
+  error_distribution: Record<string, any> | null;
+  primary_error_type: string | null;
+  error_count_30d: number;
   updated_at: string;
 }
 
@@ -272,6 +277,33 @@ export interface HealthCheckResult {
   status: 'alive' | 'dead' | 'stale' | 'timeout' | 'error';
   response_time_ms: number;
   details: Record<string, any>;
+}
+
+// ─── Error Taxonomy Types ───
+
+export type ErrorType =
+  | 'auth_failure'
+  | 'rate_limited'
+  | 'schema_mismatch'
+  | 'not_found'
+  | 'server_error'
+  | 'timeout'
+  | 'connection_refused'
+  | 'deprecated'
+  | 'ssl_error'
+  | 'unknown';
+
+export interface ErrorClassification {
+  service_id: string;
+  error_type: ErrorType;
+  source: 'probe' | 'health_check' | 'user_report';
+  details: Record<string, any>;
+}
+
+export interface ErrorProfile {
+  primary_error: ErrorType;
+  error_count_30d: number;
+  risk_note: string | null;
 }
 
 // ─── Co-occurrence Types ───

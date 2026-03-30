@@ -10,6 +10,7 @@ import { getAlternatives, getDeprecationOverview } from "./alternatives.js";
 import { runLiveProbes } from "./probe.js";
 import { seedScenarios, runFullBenchmark, getScenarioLeaderboard, getBenchmarkOverview, matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
 import { runCostExtraction } from "./cost.js";
+import { runErrorClassification, cleanupOldErrors } from "./error-taxonomy.js";
 import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
@@ -506,6 +507,98 @@ app.get("/api/cost/:serviceId", async (c) => {
   });
 });
 
+// ─── Error Taxonomy API ───
+
+app.get("/api/errors/summary", async (c) => {
+  const rows = await c.env.DB
+    .prepare(
+      `SELECT error_type, COUNT(*) as count, COUNT(DISTINCT service_id) as services
+       FROM error_classifications
+       WHERE occurred_at > datetime('now', '-30 days')
+       GROUP BY error_type
+       ORDER BY count DESC`
+    )
+    .all();
+
+  const byType: Record<string, { count: number; services: number }> = {};
+  let totalErrors = 0;
+  let totalServices = 0;
+
+  for (const r of (rows.results ?? []) as any[]) {
+    byType[r.error_type] = { count: r.count, services: r.services };
+    totalErrors += r.count;
+    totalServices += r.services;
+  }
+
+  const uniqueServicesRow = await c.env.DB
+    .prepare(
+      `SELECT COUNT(DISTINCT service_id) as cnt FROM error_classifications WHERE occurred_at > datetime('now', '-30 days')`
+    )
+    .first<{ cnt: number }>();
+
+  return c.json({
+    success: true,
+    data: {
+      period: "30d",
+      total_errors: totalErrors,
+      services_affected: uniqueServicesRow?.cnt ?? 0,
+      by_type: byType,
+    },
+  });
+});
+
+app.get("/api/errors/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+
+  const summary = await c.env.DB
+    .prepare(
+      `SELECT error_distribution, primary_error_type, error_count_30d
+       FROM health_summary WHERE service_id = ?`
+    )
+    .bind(serviceId)
+    .first<{ error_distribution: string | null; primary_error_type: string | null; error_count_30d: number }>();
+
+  let distribution: Record<string, any> = {};
+  try {
+    distribution = summary?.error_distribution ? JSON.parse(summary.error_distribution) : {};
+  } catch {
+    distribution = {};
+  }
+
+  const recentRows = await c.env.DB
+    .prepare(
+      `SELECT error_type, source, details, occurred_at
+       FROM error_classifications
+       WHERE service_id = ?
+       ORDER BY occurred_at DESC
+       LIMIT 10`
+    )
+    .bind(serviceId)
+    .all();
+
+  const recent = (recentRows.results ?? []).map((r: any) => {
+    let details: Record<string, any> = {};
+    try { details = r.details ? JSON.parse(r.details) : {}; } catch { details = {}; }
+    return {
+      error_type: r.error_type,
+      source: r.source,
+      details,
+      occurred_at: r.occurred_at,
+    };
+  });
+
+  return c.json({
+    success: true,
+    data: {
+      service_id: serviceId,
+      primary_error_type: summary?.primary_error_type ?? null,
+      error_count_30d: summary?.error_count_30d ?? 0,
+      distribution,
+      recent,
+    },
+  });
+});
+
 // ─── Benchmark API ───
 
 app.get("/api/benchmark", async (c) => {
@@ -642,6 +735,13 @@ app.post("/admin/cooccurrence", async (c) => {
   return c.json({ success: true, data: result });
 });
 
+// Admin: classify errors from probes and reports
+app.post("/admin/classify-errors", async (c) => {
+  const result = await runErrorClassification(c.env.DB);
+  await cleanupOldErrors(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
 // Admin: extract cost intelligence
 app.post("/admin/extract-cost", async (c) => {
   let body: { limit?: number } = {};
@@ -696,6 +796,10 @@ const worker = {
         await runSignalAggregation(env.DB).catch((err) => console.error("Signal aggregation failed:", err));
         // Phase 5: co-occurrence aggregation
         await runCooccurrenceAggregation(env.DB).catch((err) => console.error("Co-occurrence aggregation failed:", err));
+        // Phase 5b: error classification
+        await runErrorClassification(env.DB)
+          .then((r) => console.log(`Error classification: ${r.classified} classified, ${r.services_affected} services`))
+          .catch((err) => console.error("Error classification failed:", err));
         // Phase 6: daily benchmark at UTC 0
         const hour = new Date().getUTCHours();
         if (hour === 0) {
@@ -703,6 +807,7 @@ const worker = {
           await runFullBenchmark(env.DB)
             .then((r) => console.log(`Benchmark: ${r.scenarios_run} scenarios, ${r.total_entries} entries`))
             .catch((err) => console.error("Benchmark run failed:", err));
+          await cleanupOldErrors(env.DB, 60).catch((err) => console.error("Error cleanup failed:", err));
         }
         // Phase 7: auto-enrich README metadata at UTC 1:00 (30 services/day)
         if (hour === 1) {
