@@ -12,6 +12,7 @@ import { seedScenarios, runFullBenchmark, getScenarioLeaderboard, getBenchmarkOv
 import { runCostExtraction } from "./cost.js";
 import { runErrorClassification, cleanupOldErrors } from "./error-taxonomy.js";
 import { runVersionChecks, getVersionHistory, getRecentBreakingChanges } from "./changelog.js";
+import { recordDiscovery, recordReport, aggregateProfiles, getAgentProfile, personalizeRanking, getFailedTools, cleanupInactiveProfiles } from "./agent-profile.js";
 import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
@@ -141,21 +142,55 @@ app.post("/discover", async (c) => {
     max_monthly_price: body.max_monthly_price,
   });
 
-  // Log request (non-blocking)
+  // Log request + record discovery (non-blocking)
   const authHeader = c.req.header("Authorization") ?? "";
   const token = authHeader.slice(7);
   const keyHash = await hashKey(token);
+  const recommendedIds = result.recommendations?.map((r) => r.service_id) ?? [];
   c.executionCtx.waitUntil(
-    logRequest(c.env.DB, {
-      api_key_hash: keyHash,
-      endpoint: "/discover",
-      need: body.need.trim(),
-      response_service_ids: result.recommendations?.map((r) => r.service_id) ?? [],
-      query_id: result.query_id,
-      status_code: 200,
-      latency_ms: Date.now() - startTime,
-    })
+    Promise.all([
+      logRequest(c.env.DB, {
+        api_key_hash: keyHash,
+        endpoint: "/discover",
+        need: body.need.trim(),
+        response_service_ids: recommendedIds,
+        query_id: result.query_id,
+        status_code: 200,
+        latency_ms: Date.now() - startTime,
+      }),
+      recordDiscovery(c.env.DB, keyHash, body.need.trim(), recommendedIds),
+    ])
   );
+
+  // Personalize ranking if agent has profile
+  const [profile, failedTools] = await Promise.all([
+    getAgentProfile(c.env.DB, keyHash),
+    getFailedTools(c.env.DB, keyHash),
+  ]);
+
+  if (profile && profile.search_count >= 5) {
+    const personalized = personalizeRanking(
+      result.recommendations.map((r) => ({
+        id: r.service_id,
+        value_score: r.value_score,
+        capabilities: [], // capabilities already factored into value_score
+        pricing_model: r.cost?.pricing_model,
+      })),
+      profile,
+      failedTools
+    );
+
+    // Apply personalized scores back
+    for (const p of personalized) {
+      const rec = result.recommendations.find((r) => r.service_id === p.id);
+      if (rec) {
+        rec.value_score = p.value_score;
+      }
+    }
+
+    // Re-sort by personalized value_score
+    result.recommendations.sort((a, b) => b.value_score - a.value_score);
+  }
 
   return c.json(result);
 });
@@ -191,15 +226,18 @@ app.post("/report", async (c) => {
   const reportStartTime = Date.now();
   await insertCallReport(c.env.DB, body, keyHash);
 
-  // Log report request (non-blocking)
+  // Log report + record agent usage (non-blocking)
   c.executionCtx.waitUntil(
-    logRequest(c.env.DB, {
-      api_key_hash: keyHash,
-      endpoint: "/report",
-      query_id: body.query_id,
-      status_code: 200,
-      latency_ms: Date.now() - reportStartTime,
-    })
+    Promise.all([
+      logRequest(c.env.DB, {
+        api_key_hash: keyHash,
+        endpoint: "/report",
+        query_id: body.query_id,
+        status_code: 200,
+        latency_ms: Date.now() - reportStartTime,
+      }),
+      recordReport(c.env.DB, keyHash, body.service_id, body.success),
+    ])
   );
 
   return c.json({ status: "ok", message: "Call report recorded. Thank you for improving recommendations." });
@@ -600,6 +638,28 @@ app.get("/api/errors/:serviceId", async (c) => {
   });
 });
 
+// ─── Agent Profile API ───
+
+// Agent views own profile (Bearer auth, same as /discover)
+app.get("/api/profile", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized", message: "Missing API key." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  const profile = await getAgentProfile(c.env.DB, keyHash);
+  if (!profile) {
+    return c.json({ error: "No profile yet. Use /discover to start building your profile." }, 404);
+  }
+  return c.json({ success: true, data: profile });
+});
+
 // ─── Changelog Intelligence API ───
 
 app.get("/api/versions/:serviceId", async (c) => {
@@ -779,6 +839,34 @@ app.post("/admin/benchmark", async (c) => {
   return c.json({ success: true, data: result });
 });
 
+// Admin: aggregate agent profiles
+app.post("/admin/aggregate-profiles", async (c) => {
+  const result = await aggregateProfiles(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
+// Admin: profile stats overview
+app.get("/api/profiles/stats", async (c) => {
+  const stats = await c.env.DB
+    .prepare(
+      `SELECT
+         COUNT(*) as total,
+         COUNT(CASE WHEN search_count >= 10 THEN 1 END) as active,
+         AVG(search_count) as avg_searches
+       FROM agent_profiles`
+    )
+    .first<{ total: number; active: number; avg_searches: number }>();
+
+  return c.json({
+    success: true,
+    data: {
+      total_profiles: stats?.total ?? 0,
+      active_profiles: stats?.active ?? 0,
+      avg_searches: Math.round((stats?.avg_searches ?? 0) * 100) / 100,
+    },
+  });
+});
+
 // MCP Server endpoint (Streamable HTTP via Durable Objects)
 const mcpHandler = DisvrMcpAgent.serve("/mcp", { binding: "MCP_AGENT" });
 
@@ -825,6 +913,10 @@ const worker = {
         await runVersionChecks(env.DB, 30)
           .then((r) => console.log(`Version check: ${r.checked} checked, ${r.updated} updated, ${r.breaking_changes} breaking`))
           .catch((err) => console.error("Version check failed:", err));
+        // Phase 5d: aggregate agent profiles (50 per hour)
+        await aggregateProfiles(env.DB, 50)
+          .then((r) => console.log(`Profile aggregation: ${r.profiles_updated} updated`))
+          .catch((err) => console.error("Profile aggregation failed:", err));
         // Phase 6: daily benchmark at UTC 0
         const hour = new Date().getUTCHours();
         if (hour === 0) {
@@ -833,6 +925,7 @@ const worker = {
             .then((r) => console.log(`Benchmark: ${r.scenarios_run} scenarios, ${r.total_entries} entries`))
             .catch((err) => console.error("Benchmark run failed:", err));
           await cleanupOldErrors(env.DB, 60).catch((err) => console.error("Error cleanup failed:", err));
+          await cleanupInactiveProfiles(env.DB, 90).catch((err) => console.error("Profile cleanup failed:", err));
         }
         // Phase 7: auto-enrich README metadata at UTC 1:00 (30 services/day)
         if (hour === 1) {
