@@ -194,6 +194,8 @@ export interface Recommendation {
   context_reason?: string;
   /** 上下文加成分数 */
   context_boost?: number;
+  /** 订阅建议（工具有风险时提供） */
+  watch_suggestion?: string;
 }
 
 export interface DiscoverResponse {

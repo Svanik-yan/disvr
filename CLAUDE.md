@@ -63,6 +63,7 @@ src/
 ├── changelog.ts      # Version tracking: semver analysis, npm/pypi checks, breaking change detection
 ├── agent-profile.ts  # Agent behavioral profiling: usage tracking, personalized ranking
 ├── failover.ts       # Failover advisor: error-based decision engine + alternative lookup
+├── watch.ts          # Tool watch & alerts: subscriptions, alert generation, pull-based notifications
 ├── mcp.ts            # MCP Server (6 tools: discover, details, report, list, failover, alternatives)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -90,7 +91,8 @@ test/
 ├── changelog.test.ts # version tracking & breaking change tests (33 tests)
 ├── agent-profile.test.ts # agent profiling & personalization tests (22 tests)
 ├── frontend-enhance.test.ts # frontend enhancement tests (14 tests)
-└── failover.test.ts  # failover advisor tests (28 tests)
+├── failover.test.ts  # failover advisor tests (28 tests)
+└── watch.test.ts     # tool watch & alerts tests
 ```
 
 ## Routes
@@ -143,6 +145,12 @@ test/
 | POST | /admin/extract-cost | Admin | Extract cost intelligence from services |
 | POST | /admin/benchmark | Admin | Run benchmark across all scenarios |
 | POST | /admin/classify-errors | Admin | Run error classification pipeline |
+| POST | /api/watch | Bearer | Subscribe to tool health alerts |
+| GET | /api/watch | Bearer | Get watch list |
+| DELETE | /api/watch/:serviceId | Bearer | Unsubscribe from tool |
+| GET | /api/watch/alerts | Bearer | Get alerts for watched tools |
+| GET | /api/watch/summary | Bearer | Alert summary (counts by severity) |
+| POST | /admin/generate-alerts | Admin | Trigger alert generation |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
 ## Deployment

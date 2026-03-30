@@ -66,6 +66,7 @@ export class DisvrMcpAgent extends McpAgent<Env> {
                   ...(r.failover_hint ? { failover_hint: r.failover_hint } : {}),
                   ...(r.context_reason ? { context_reason: r.context_reason } : {}),
                   ...(r.context_boost ? { context_boost: r.context_boost } : {}),
+                  ...(r.watch_suggestion ? { watch_suggestion: r.watch_suggestion } : {}),
                 })),
               }, null, 2),
             },
@@ -272,5 +273,11 @@ export class DisvrMcpAgent extends McpAgent<Env> {
         };
       }
     );
+
+    // Note: watch_tool and get_alerts MCP tools are not available via MCP channel.
+    // Watch requires agent identity (api_key_hash) for subscription management,
+    // but MCP has no authentication mechanism. Use the REST API instead:
+    //   POST /api/watch — subscribe (Bearer auth)
+    //   GET /api/watch/alerts — get alerts (Bearer auth)
   }
 }
