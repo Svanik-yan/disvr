@@ -7,6 +7,7 @@ import { crawlSmithery, crawlAwesomeMcp, crawlMcpRegistry, enrichGitHubStars, em
 import { runHealthChecks } from "./health.js";
 import { runCooccurrenceAggregation, getCooccurrences } from "./cooccurrence.js";
 import { getAlternatives, getDeprecationOverview } from "./alternatives.js";
+import { runLiveProbes } from "./probe.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
@@ -348,6 +349,70 @@ app.get("/api/install/:serviceId", async (c) => {
   });
 });
 
+// ─── Live Probe API ───
+
+app.get("/api/probe/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+
+  const summary = await c.env.DB
+    .prepare(
+      `SELECT call_success_rate, probe_type, last_probe_details FROM health_summary WHERE service_id = ?`
+    )
+    .bind(serviceId)
+    .first<{ call_success_rate: number | null; probe_type: string | null; last_probe_details: string | null }>();
+
+  if (!summary || summary.probe_type === null) {
+    return c.json({ error: "not_found", message: "No probe data for this service" }, 404);
+  }
+
+  const recentRows = await c.env.DB
+    .prepare(
+      `SELECT check_type, status, response_time_ms, details, checked_at
+       FROM health_checks
+       WHERE service_id = ? AND check_type IN ('mcp_handshake', 'api_probe')
+       ORDER BY checked_at DESC
+       LIMIT 10`
+    )
+    .bind(serviceId)
+    .all();
+
+  let probeDetails: Record<string, any> = {};
+  try {
+    probeDetails = summary.last_probe_details ? JSON.parse(summary.last_probe_details) : {};
+  } catch {
+    probeDetails = {};
+  }
+
+  const recentProbes = (recentRows.results ?? []).map((r) => {
+    let details: Record<string, any> = {};
+    try {
+      details = r.details ? JSON.parse(r.details as string) : {};
+    } catch {
+      details = {};
+    }
+    return {
+      check_type: r.check_type,
+      status: r.status,
+      response_time_ms: r.response_time_ms,
+      details,
+      checked_at: r.checked_at,
+    };
+  });
+
+  return c.json({
+    success: true,
+    data: {
+      summary: {
+        service_id: serviceId,
+        call_success_rate: summary.call_success_rate,
+        probe_type: summary.probe_type,
+        last_probe_details: probeDetails,
+      },
+      recent_probes: recentProbes,
+    },
+  });
+});
+
 // ─── Co-occurrence API ───
 
 app.get("/api/cooccurrence/:serviceId", async (c) => {
@@ -450,6 +515,12 @@ app.post("/admin/health-check", async (c) => {
     ...healthResult,
     old_records_cleaned: cleanedCount,
   });
+});
+
+// Admin: trigger live probes
+app.post("/admin/probe", async (c) => {
+  const result = await runLiveProbes(c.env.DB, 20);
+  return c.json({ success: true, data: result });
 });
 
 // Admin: trigger co-occurrence aggregation

@@ -6,6 +6,7 @@ import {
   cleanupOldHealthChecks,
 } from "./db.js";
 import { runInstallChecks } from "./install-check.js";
+import { runLiveProbes } from "./probe.js";
 
 const TIMEOUT_MS = 5000;
 
@@ -504,7 +505,7 @@ export async function runHealthChecks(
   db: D1Database,
   batchSize: number = 50,
   githubToken?: string
-): Promise<{ checked: number; healthy: number; degraded: number; dead: number; install?: { checked: number; easy: number; medium: number; hard: number; broken: number } }> {
+): Promise<{ checked: number; healthy: number; degraded: number; dead: number; install?: { checked: number; easy: number; medium: number; hard: number; broken: number }; probe?: { probed: number; successful: number; failed: number; skipped: number } }> {
   // 1. Find services most in need of checking
   const rows = await db
     .prepare(
@@ -520,7 +521,7 @@ export async function runHealthChecks(
     return { checked: 0, healthy: 0, degraded: 0, dead: 0 };
   }
 
-  const stats: { checked: number; healthy: number; degraded: number; dead: number; install?: { checked: number; easy: number; medium: number; hard: number; broken: number } } = { checked: 0, healthy: 0, degraded: 0, dead: 0 };
+  const stats: { checked: number; healthy: number; degraded: number; dead: number; install?: { checked: number; easy: number; medium: number; hard: number; broken: number }; probe?: { probed: number; successful: number; failed: number; skipped: number } } = { checked: 0, healthy: 0, degraded: 0, dead: 0 };
   const checkedServices: Service[] = [];
 
   // 2. Process in sub-batches of 10
@@ -652,6 +653,14 @@ export async function runHealthChecks(
     } catch (err) {
       console.error("Install checks failed:", err);
     }
+  }
+
+  // 10. Run live probes (smaller batch — probes are slower and may be rate-limited)
+  try {
+    const probeResult = await runLiveProbes(db, Math.min(batchSize, 20));
+    stats.probe = probeResult;
+  } catch (err) {
+    console.error("Live probes failed:", err);
   }
 
   return stats;

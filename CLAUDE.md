@@ -55,6 +55,7 @@ src/
 ├── cooccurrence.ts   # Tool co-occurrence knowledge graph
 ├── alternatives.ts   # Deprecation detection & alternative recommendations
 ├── install-check.ts  # Install score: npm/pypi installability, env docs, difficulty rating
+├── probe.ts          # Live probes: MCP handshake, HTTP API health check
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -72,7 +73,8 @@ test/
 ├── health.test.ts    # 28 tests
 ├── cooccurrence.test.ts # co-occurrence tests
 ├── alternatives.test.ts # deprecation & alternatives tests
-└── install-check.test.ts # install score tests
+├── install-check.test.ts # install score tests
+└── probe.test.ts     # live probe tests
 ```
 
 ## Routes
@@ -96,12 +98,14 @@ test/
 | GET | /api/alternatives/:serviceId | No | Healthy alternatives for degraded/dead tools |
 | GET | /api/deprecations | No | Deprecation overview |
 | GET | /api/install/:serviceId | No | Install score & difficulty details |
+| GET | /api/probe/:serviceId | No | Live probe details & recent probes |
 | GET | /api/cooccurrence/:serviceId | No | Tool co-occurrence data |
 | POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
 | POST | /admin/reindex | Admin | Reindex into Vectorize |
 | POST | /admin/rebuild-fts | Admin | Rebuild FTS5 index |
 | POST | /admin/enrich | Admin | Enrich GitHub stars |
 | POST | /admin/health-check | Admin | Run health checks |
+| POST | /admin/probe | Admin | Trigger live probes |
 | POST | /admin/cooccurrence | Admin | Trigger co-occurrence aggregation |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
