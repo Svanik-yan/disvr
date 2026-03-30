@@ -24,10 +24,14 @@ export class DisvrMcpAgent extends McpAgent<Env> {
         need: z.string().min(5).describe("What you need the tool to do (min 5 chars)"),
         max_results: z.number().min(1).max(10).optional().describe("Max recommendations (1-10, default 3)"),
         type_filter: z.enum(["mcp_server", "api", "library", "cli"]).optional().describe("Filter by tool type"),
+        current_tools: z.array(z.string()).optional().describe("Tool IDs the agent already has — used to exclude and boost complementary tools"),
+        exclude: z.array(z.string()).optional().describe("Additional tool IDs to explicitly exclude from results"),
       },
       async (params) => {
         const result = await searchServices(this.env, {
           need: params.need,
+          current_tools: params.current_tools,
+          exclude: params.exclude,
         });
 
         let recs = result.recommendations;
@@ -60,6 +64,8 @@ export class DisvrMcpAgent extends McpAgent<Env> {
                   ...(r.deprecation_warning ? { deprecation_warning: r.deprecation_warning } : {}),
                   ...(r.version_warning ? { version_warning: r.version_warning } : {}),
                   ...(r.failover_hint ? { failover_hint: r.failover_hint } : {}),
+                  ...(r.context_reason ? { context_reason: r.context_reason } : {}),
+                  ...(r.context_boost ? { context_boost: r.context_boost } : {}),
                 })),
               }, null, 2),
             },

@@ -122,6 +122,10 @@ export interface DiscoverRequest {
   pricing_model?: string;
   /** 月费上限 (USD) */
   max_monthly_price?: number;
+  /** Agent 当前已有的工具（用于上下文感知推荐） */
+  current_tools?: string[];
+  /** 显式排除的工具 ID */
+  exclude?: string[];
 }
 
 /**
@@ -186,6 +190,10 @@ export interface Recommendation {
   version_warning?: VersionWarning;
   /** 失败处理提示（有错误历史时预生成） */
   failover_hint?: FailoverHint;
+  /** 上下文感知推荐理由（与 Agent 现有工具的搭配关系） */
+  context_reason?: string;
+  /** 上下文加成分数 */
+  context_boost?: number;
 }
 
 export interface DiscoverResponse {

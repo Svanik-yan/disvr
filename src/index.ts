@@ -146,6 +146,8 @@ app.post("/discover", async (c) => {
     max_cost_per_call: body.max_cost_per_call,
     pricing_model: body.pricing_model,
     max_monthly_price: body.max_monthly_price,
+    current_tools: body.current_tools,
+    exclude: body.exclude,
   });
 
   // Log request + record discovery (non-blocking)
