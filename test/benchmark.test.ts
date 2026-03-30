@@ -142,7 +142,7 @@ describe("DEFAULT_SCENARIOS", () => {
   it("all scenarios have valid weights summing to 1", () => {
     for (const s of DEFAULT_SCENARIOS) {
       const w = s.eval_weights;
-      const sum = w.availability + w.installability + w.responsiveness + w.freshness + w.popularity;
+      const sum = w.availability + w.installability + w.responsiveness + w.freshness + w.popularity + w.cost_efficiency;
       expect(sum).toBeCloseTo(1.0, 2);
     }
   });

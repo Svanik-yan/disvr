@@ -9,6 +9,7 @@ import { runCooccurrenceAggregation, getCooccurrences } from "./cooccurrence.js"
 import { getAlternatives, getDeprecationOverview } from "./alternatives.js";
 import { runLiveProbes } from "./probe.js";
 import { seedScenarios, runFullBenchmark, getScenarioLeaderboard, getBenchmarkOverview, matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
+import { runCostExtraction } from "./cost.js";
 import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
@@ -133,6 +134,9 @@ app.post("/discover", async (c) => {
     min_success_rate: body.min_success_rate,
     budget_usd: body.budget_usd,
     task_context: body.task_context,
+    max_cost_per_call: body.max_cost_per_call,
+    pricing_model: body.pricing_model,
+    max_monthly_price: body.max_monthly_price,
   });
 
   // Log request (non-blocking)
@@ -425,6 +429,83 @@ app.get("/api/cooccurrence/:serviceId", async (c) => {
   return c.json({ success: true, data: results });
 });
 
+// ─── Cost Intelligence API ───
+
+app.get("/api/cost/summary", async (c) => {
+  const rows = await c.env.DB
+    .prepare(
+      `SELECT pricing_model, COUNT(*) as count FROM services WHERE pricing_model IS NOT NULL GROUP BY pricing_model`
+    )
+    .all();
+
+  const distribution: Record<string, number> = {};
+  for (const r of (rows.results ?? []) as any[]) {
+    distribution[r.pricing_model] = r.count;
+  }
+
+  const totalRow = await c.env.DB
+    .prepare(`SELECT COUNT(*) as total FROM services`)
+    .first<{ total: number }>();
+
+  const extractedRow = await c.env.DB
+    .prepare(`SELECT COUNT(*) as extracted FROM services WHERE pricing_model IS NOT NULL`)
+    .first<{ extracted: number }>();
+
+  return c.json({
+    success: true,
+    data: {
+      distribution,
+      total_services: totalRow?.total ?? 0,
+      extracted: extractedRow?.extracted ?? 0,
+      pending: (totalRow?.total ?? 0) - (extractedRow?.extracted ?? 0),
+    },
+  });
+});
+
+app.get("/api/cost/:serviceId", async (c) => {
+  const serviceId = c.req.param("serviceId");
+  const row = await c.env.DB
+    .prepare(
+      `SELECT pricing_model, cost_per_call, free_tier_limit, monthly_price, pricing_details
+       FROM services WHERE id = ?`
+    )
+    .bind(serviceId)
+    .first<{
+      pricing_model: string | null;
+      cost_per_call: number | null;
+      free_tier_limit: number | null;
+      monthly_price: number | null;
+      pricing_details: string | null;
+    }>();
+
+  if (!row) {
+    return c.json({ error: "not_found", message: "Service not found" }, 404);
+  }
+
+  if (!row.pricing_model) {
+    return c.json({ error: "not_found", message: "No cost data for this service yet" }, 404);
+  }
+
+  let details: Record<string, any> = {};
+  try {
+    details = row.pricing_details ? JSON.parse(row.pricing_details) : {};
+  } catch {
+    details = {};
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      service_id: serviceId,
+      pricing_model: row.pricing_model,
+      cost_per_call: row.cost_per_call,
+      free_tier_limit: row.free_tier_limit,
+      monthly_price: row.monthly_price,
+      details,
+    },
+  });
+});
+
 // ─── Benchmark API ───
 
 app.get("/api/benchmark", async (c) => {
@@ -558,6 +639,15 @@ app.post("/admin/probe", async (c) => {
 // Admin: trigger co-occurrence aggregation
 app.post("/admin/cooccurrence", async (c) => {
   const result = await runCooccurrenceAggregation(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
+// Admin: extract cost intelligence
+app.post("/admin/extract-cost", async (c) => {
+  let body: { limit?: number } = {};
+  try { body = await c.req.json(); } catch { /* defaults */ }
+  const limit = Math.min(Number(body.limit) || 50, 200);
+  const result = await runCostExtraction(c.env.DB, limit);
   return c.json({ success: true, data: result });
 });
 

@@ -6,6 +6,7 @@ export interface EvalWeights {
   responsiveness: number;
   freshness: number;
   popularity: number;
+  cost_efficiency: number;
 }
 
 export interface BenchmarkScenario {
@@ -28,7 +29,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Search the web and return relevant results",
     category_match: "search",
     tags_match: ["web", "search", "google", "bing", "brave"],
-    eval_weights: { availability: 0.30, installability: 0.15, responsiveness: 0.25, freshness: 0.15, popularity: 0.15 },
+    eval_weights: { availability: 0.25, installability: 0.15, responsiveness: 0.20, freshness: 0.10, popularity: 0.10, cost_efficiency: 0.20 },
   },
   {
     id: "web-scrape",
@@ -36,7 +37,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Extract structured data from web pages",
     category_match: "scraping",
     tags_match: ["scrape", "crawl", "extract", "html", "browser"],
-    eval_weights: { availability: 0.30, installability: 0.15, responsiveness: 0.25, freshness: 0.15, popularity: 0.15 },
+    eval_weights: { availability: 0.25, installability: 0.15, responsiveness: 0.20, freshness: 0.10, popularity: 0.10, cost_efficiency: 0.20 },
   },
   {
     id: "file-management",
@@ -44,7 +45,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Read, write, and manage files",
     category_match: "file",
     tags_match: ["file", "read", "write", "filesystem"],
-    eval_weights: { availability: 0.25, installability: 0.25, responsiveness: 0.15, freshness: 0.15, popularity: 0.20 },
+    eval_weights: { availability: 0.20, installability: 0.20, responsiveness: 0.15, freshness: 0.10, popularity: 0.15, cost_efficiency: 0.20 },
   },
   {
     id: "code-execution",
@@ -52,7 +53,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Execute code snippets in various languages",
     category_match: "code",
     tags_match: ["execute", "run", "interpreter", "sandbox", "code"],
-    eval_weights: { availability: 0.30, installability: 0.20, responsiveness: 0.25, freshness: 0.10, popularity: 0.15 },
+    eval_weights: { availability: 0.25, installability: 0.15, responsiveness: 0.20, freshness: 0.10, popularity: 0.10, cost_efficiency: 0.20 },
   },
   {
     id: "database",
@@ -60,7 +61,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Query and manage databases",
     category_match: "database",
     tags_match: ["sql", "postgres", "mysql", "sqlite", "database"],
-    eval_weights: { availability: 0.25, installability: 0.25, responsiveness: 0.20, freshness: 0.15, popularity: 0.15 },
+    eval_weights: { availability: 0.20, installability: 0.20, responsiveness: 0.15, freshness: 0.10, popularity: 0.15, cost_efficiency: 0.20 },
   },
   {
     id: "email",
@@ -68,7 +69,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Send and manage emails",
     category_match: "email",
     tags_match: ["email", "smtp", "mail", "send"],
-    eval_weights: { availability: 0.35, installability: 0.20, responsiveness: 0.20, freshness: 0.10, popularity: 0.15 },
+    eval_weights: { availability: 0.25, installability: 0.15, responsiveness: 0.15, freshness: 0.10, popularity: 0.10, cost_efficiency: 0.25 },
   },
   {
     id: "image-generation",
@@ -76,7 +77,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Generate images from text prompts",
     category_match: "image",
     tags_match: ["image", "generate", "dalle", "diffusion", "art"],
-    eval_weights: { availability: 0.30, installability: 0.15, responsiveness: 0.25, freshness: 0.15, popularity: 0.15 },
+    eval_weights: { availability: 0.25, installability: 0.10, responsiveness: 0.20, freshness: 0.10, popularity: 0.10, cost_efficiency: 0.25 },
   },
   {
     id: "pdf-processing",
@@ -84,7 +85,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Read, create, and manipulate PDF files",
     category_match: "pdf",
     tags_match: ["pdf", "document", "ocr"],
-    eval_weights: { availability: 0.25, installability: 0.25, responsiveness: 0.15, freshness: 0.15, popularity: 0.20 },
+    eval_weights: { availability: 0.20, installability: 0.20, responsiveness: 0.15, freshness: 0.10, popularity: 0.15, cost_efficiency: 0.20 },
   },
   {
     id: "http-client",
@@ -92,7 +93,7 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Make HTTP requests to external APIs",
     category_match: "api",
     tags_match: ["http", "api", "request", "fetch", "rest"],
-    eval_weights: { availability: 0.30, installability: 0.20, responsiveness: 0.25, freshness: 0.10, popularity: 0.15 },
+    eval_weights: { availability: 0.25, installability: 0.15, responsiveness: 0.20, freshness: 0.10, popularity: 0.10, cost_efficiency: 0.20 },
   },
   {
     id: "data-transform",
@@ -100,6 +101,6 @@ export const DEFAULT_SCENARIOS: BenchmarkScenario[] = [
     description: "Transform data between formats (JSON, CSV, XML, etc.)",
     category_match: "data",
     tags_match: ["transform", "convert", "json", "csv", "xml", "parse"],
-    eval_weights: { availability: 0.25, installability: 0.25, responsiveness: 0.15, freshness: 0.15, popularity: 0.20 },
+    eval_weights: { availability: 0.20, installability: 0.20, responsiveness: 0.15, freshness: 0.10, popularity: 0.15, cost_efficiency: 0.20 },
   },
 ];

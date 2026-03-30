@@ -111,10 +111,11 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
             <th class="px-6 py-4 font-semibold text-center">Response</th>
             <th class="px-6 py-4 font-semibold text-center">Freshness</th>
             <th class="px-6 py-4 font-semibold text-center">Popularity</th>
+            <th class="px-6 py-4 font-semibold text-center">Cost</th>
           </tr>
         </thead>
         <tbody id="leaderboard-body">
-          <tr><td colspan="8" class="px-6 py-12 text-center text-on-surface-variant">Select a scenario to view rankings</td></tr>
+          <tr><td colspan="9" class="px-6 py-12 text-center text-on-surface-variant">Select a scenario to view rankings</td></tr>
         </tbody>
       </table>
     </div>
@@ -138,6 +139,7 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
           <li><span class="text-secondary">Responsiveness</span> &mdash; Call success rate and average response time</li>
           <li><span class="text-secondary">Freshness</span> &mdash; How recently the tool was updated</li>
           <li><span class="text-secondary">Popularity</span> &mdash; Reputation score and total usage calls</li>
+          <li><span class="text-secondary">Cost Efficiency</span> &mdash; Pricing model, free tier availability, monthly cost</li>
         </ul>
       </div>
       <div>
@@ -242,13 +244,13 @@ async function selectScenario(scenarioId) {
   });
 
   const tbody = document.getElementById('leaderboard-body');
-  tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-12 text-center text-on-surface-variant">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-on-surface-variant">Loading...</td></tr>';
 
   try {
     const res = await fetch(API_BASE + '/api/benchmark/' + scenarioId);
     const json = await res.json();
     if (!json.success || !json.data.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-12 text-center text-on-surface-variant">No results for this scenario yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-on-surface-variant">No results for this scenario yet.</td></tr>';
       return;
     }
 
@@ -268,13 +270,14 @@ async function selectScenario(scenarioId) {
           <td class="px-6 py-4 text-center">\${renderScoreCell(d.responsiveness)}</td>
           <td class="px-6 py-4 text-center">\${renderScoreCell(d.freshness)}</td>
           <td class="px-6 py-4 text-center">\${renderScoreCell(d.popularity)}</td>
+          <td class="px-6 py-4 text-center">\${renderScoreCell(d.cost_efficiency)}</td>
         </tr>
       \`;
     }).join('');
     tbody.innerHTML = rowsHtml;
   } catch (e) {
     console.error('Failed to load leaderboard:', e);
-    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-12 text-center text-error">Failed to load data</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-12 text-center text-error">Failed to load data</td></tr>';
   }
 }
 

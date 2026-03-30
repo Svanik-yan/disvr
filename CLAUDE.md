@@ -58,6 +58,7 @@ src/
 ├── probe.ts          # Live probes: MCP handshake, HTTP API health check
 ├── benchmark.ts      # Benchmark engine: scoring, ranking, leaderboards
 ├── benchmark-scenarios.ts # 10 predefined benchmark scenario definitions
+├── cost.ts           # Cost intelligence: pricing extraction, scoring, batch processing
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -78,7 +79,8 @@ test/
 ├── alternatives.test.ts # deprecation & alternatives tests
 ├── install-check.test.ts # install score tests
 ├── probe.test.ts     # live probe tests
-└── benchmark.test.ts # benchmark scoring & scenarios tests
+├── benchmark.test.ts # benchmark scoring & scenarios tests
+└── cost.test.ts      # cost intelligence tests
 ```
 
 ## Routes
@@ -104,6 +106,8 @@ test/
 | GET | /api/install/:serviceId | No | Install score & difficulty details |
 | GET | /api/probe/:serviceId | No | Live probe details & recent probes |
 | GET | /api/cooccurrence/:serviceId | No | Tool co-occurrence data |
+| GET | /api/cost/summary | No | Pricing model distribution |
+| GET | /api/cost/:serviceId | No | Service pricing details |
 | GET | /benchmark | No | Benchmark leaderboard page |
 | GET | /api/benchmark | No | Benchmark overview (all scenarios) |
 | GET | /api/benchmark/scenarios | No | List scenario definitions |
@@ -115,6 +119,7 @@ test/
 | POST | /admin/health-check | Admin | Run health checks |
 | POST | /admin/probe | Admin | Trigger live probes |
 | POST | /admin/cooccurrence | Admin | Trigger co-occurrence aggregation |
+| POST | /admin/extract-cost | Admin | Extract cost intelligence from services |
 | POST | /admin/benchmark | Admin | Run benchmark across all scenarios |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
@@ -134,7 +139,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 311 tests, ~260ms
+npx vitest run          # 342 tests, ~290ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.

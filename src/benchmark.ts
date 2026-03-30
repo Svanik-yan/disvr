@@ -1,5 +1,6 @@
 import type { BenchmarkScenario } from "./benchmark-scenarios.js";
 import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
+import { scoreCostEfficiency } from "./cost.js";
 
 // ─── Types ───
 
@@ -9,6 +10,7 @@ export interface DimensionScores {
   responsiveness: number;
   freshness: number;
   popularity: number;
+  cost_efficiency: number;
 }
 
 export interface BenchmarkEntry {
@@ -143,6 +145,7 @@ export async function runBenchmarkForScenario(
 
   const query = `
     SELECT DISTINCT s.id, s.name, s.reputation_score, s.total_calls,
+           s.pricing_model, s.free_tier_limit, s.monthly_price,
            h.overall_status, h.uptime_30d, h.install_score, h.call_success_rate,
            h.avg_response_ms, h.last_updated
     FROM services s
@@ -182,6 +185,11 @@ export async function runBenchmarkForScenario(
         reputation_score: row.reputation_score as number | null,
         total_calls: (row.total_calls as number) ?? 0,
       }),
+      cost_efficiency: scoreCostEfficiency({
+        pricing_model: row.pricing_model as string | null,
+        free_tier_limit: row.free_tier_limit as number | null,
+        monthly_price: row.monthly_price as number | null,
+      }),
     };
 
     const w = scenario.eval_weights;
@@ -190,7 +198,8 @@ export async function runBenchmarkForScenario(
       dims.installability * w.installability +
       dims.responsiveness * w.responsiveness +
       dims.freshness * w.freshness +
-      dims.popularity * w.popularity
+      dims.popularity * w.popularity +
+      dims.cost_efficiency * w.cost_efficiency
     );
 
     return {
@@ -283,7 +292,7 @@ export async function getScenarioLeaderboard(
     service_name: r.service_name as string,
     overall_score: r.overall_score as number,
     dimension_scores: safeParseJson(r.dimension_scores as string, {
-      availability: 0, installability: 0, responsiveness: 0, freshness: 0, popularity: 0,
+      availability: 0, installability: 0, responsiveness: 0, freshness: 0, popularity: 0, cost_efficiency: 0,
     }),
     rank: r.rank as number,
   }));
