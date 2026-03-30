@@ -331,6 +331,27 @@ export interface VersionWarning {
   message: string;
 }
 
+// ─── Agent Profile Types ───
+
+export interface AgentProfile {
+  api_key_hash: string;
+  search_count: number;
+  first_seen: string;
+  last_seen: string;
+  preferred_categories: Record<string, number>;
+  preferred_pricing: string | null;
+  intent_distribution: Record<string, number>;
+  top_tools: string[];
+  avg_tools_per_session: number;
+  profile_data: Record<string, any>;
+}
+
+export interface PersonalizationResult {
+  id: string;
+  value_score: number;
+  personalization_boost: number;
+}
+
 // ─── Co-occurrence Types ───
 
 export interface CooccurrencePair {

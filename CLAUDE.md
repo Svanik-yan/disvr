@@ -61,6 +61,7 @@ src/
 ├── cost.ts           # Cost intelligence: pricing extraction, scoring, batch processing
 ├── error-taxonomy.ts # Error classification: status codes + text patterns → 10 error types
 ├── changelog.ts      # Version tracking: semver analysis, npm/pypi checks, breaking change detection
+├── agent-profile.ts  # Agent behavioral profiling: usage tracking, personalized ranking
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -84,7 +85,8 @@ test/
 ├── benchmark.test.ts # benchmark scoring & scenarios tests
 ├── cost.test.ts      # cost intelligence tests
 ├── error-taxonomy.test.ts # error classification tests (51 tests)
-└── changelog.test.ts # version tracking & breaking change tests (33 tests)
+├── changelog.test.ts # version tracking & breaking change tests (33 tests)
+└── agent-profile.test.ts # agent profiling & personalization tests (22 tests)
 ```
 
 ## Routes
@@ -127,6 +129,9 @@ test/
 | GET | /api/errors/:serviceId | No | Service error profile & recent errors |
 | GET | /api/versions/:serviceId | No | Service version history |
 | GET | /api/breaking-changes | No | Recent breaking changes (default 7 days) |
+| GET | /api/profile | Bearer | Agent's own usage profile |
+| GET | /api/profiles/stats | No | Profile stats overview |
+| POST | /admin/aggregate-profiles | Admin | Trigger profile aggregation |
 | POST | /admin/version-check | Admin | Trigger version checks |
 | POST | /admin/extract-cost | Admin | Extract cost intelligence from services |
 | POST | /admin/benchmark | Admin | Run benchmark across all scenarios |
@@ -149,7 +154,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 426 tests, ~346ms
+npx vitest run          # 448 tests, ~359ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.
