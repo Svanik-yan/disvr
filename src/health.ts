@@ -624,7 +624,7 @@ export async function runHealthChecks(
         package_status: packageStatus,
         endpoint_status: endpointStatus,
         last_updated: lastUpdated ?? undefined,
-        uptime_30d,
+        uptime_30d: uptime30d,
         avg_response_ms: avgResponseMs,
       });
 
