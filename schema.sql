@@ -30,6 +30,11 @@ CREATE TABLE IF NOT EXISTS services (
   service_type TEXT DEFAULT 'mcp_server',  -- "mcp_server" | "api" | "library" | "cli"
   required_env TEXT,           -- JSON array: [{"key":"DEEPL_API_KEY","description":"...","free_tier":true}]
   tools_provided TEXT,         -- JSON array: [{"name":"translate","description":"...","example_input":{...}}]
+  pricing_model TEXT,           -- 'free' | 'freemium' | 'paid' | 'open_source' | 'unknown'
+  pricing_details TEXT,         -- JSON: raw pricing info with source, tiers
+  cost_per_call REAL,           -- estimated USD per call, 0 for free
+  free_tier_limit INTEGER,      -- calls/day free tier, -1=unlimited, 0=none, null=unknown
+  monthly_price REAL,           -- lowest paid tier monthly USD, 0=free, null=unknown
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT DEFAULT (datetime('now'))
 );

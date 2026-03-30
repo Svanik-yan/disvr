@@ -202,6 +202,16 @@ export async function searchServices(
             },
           }
         : {}),
+      ...(item.service.pricing_model && item.service.pricing_model !== "unknown"
+        ? {
+            cost: {
+              pricing_model: item.service.pricing_model,
+              cost_per_call: item.service.cost_per_call ?? null,
+              free_tier_limit: item.service.free_tier_limit ?? null,
+              monthly_price: item.service.monthly_price ?? null,
+            },
+          }
+        : {}),
     };
   });
 
@@ -355,6 +365,25 @@ export function applyConstraints(
         service.success_rate < request.min_success_rate)
     ) {
       return false;
+    }
+    // Cost constraints — unknown services pass through (avoid false elimination)
+    if (request.max_cost_per_call !== undefined && service.cost_per_call !== null && service.cost_per_call !== undefined) {
+      if (service.cost_per_call > request.max_cost_per_call) return false;
+    }
+    if (request.max_monthly_price !== undefined && service.monthly_price !== null && service.monthly_price !== undefined) {
+      if (service.monthly_price > request.max_monthly_price) return false;
+    }
+    if (request.pricing_model) {
+      const pm = service.pricing_model;
+      if (pm && pm !== "unknown") {
+        // "free" matches both "free" and "open_source"
+        if (request.pricing_model === "free") {
+          if (pm !== "free" && pm !== "open_source") return false;
+        } else if (pm !== request.pricing_model) {
+          return false;
+        }
+      }
+      // pm is null or unknown → pass through
     }
     return true;
   });

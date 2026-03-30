@@ -81,12 +81,27 @@ export interface Service {
   install?: InstallInfo | null;
   required_env?: EnvRequirement[] | null;
   tools_provided?: ToolProvided[] | null;
+  pricing_model?: string | null;
+  cost_per_call?: number | null;
+  free_tier_limit?: number | null;
+  monthly_price?: number | null;
+  pricing_details?: Record<string, any> | null;
 }
 
 /**
  * DiscoverRequest: Agent 发来的需求
  * 核心差异点：不只是"找工具"，而是"在预算约束下找到最值的工具"
  */
+export type PricingModel = 'free' | 'freemium' | 'paid' | 'open_source' | 'unknown';
+
+export interface CostInfo {
+  pricing_model: PricingModel;
+  cost_per_call: number | null;
+  free_tier_limit: number | null;
+  monthly_price: number | null;
+  pricing_details: Record<string, any>;
+}
+
 export interface DiscoverRequest {
   need: string;
   /** 每次调用最高价格 (USD) */
@@ -101,6 +116,12 @@ export interface DiscoverRequest {
   budget_usd?: number;
   /** 任务类型上下文，影响推荐权重 */
   task_context?: string;
+  /** 最大单次调用成本 (USD) */
+  max_cost_per_call?: number;
+  /** 只要特定定价模型 */
+  pricing_model?: string;
+  /** 月费上限 (USD) */
+  max_monthly_price?: number;
 }
 
 /**
@@ -152,6 +173,13 @@ export interface Recommendation {
   commonly_used_with?: CooccurrenceResult[];
   /** 弃用警告（工具不健康时提供） */
   deprecation_warning?: DeprecationWarning;
+  /** 成本情报（非 unknown 时提供） */
+  cost?: {
+    pricing_model: string;
+    cost_per_call: number | null;
+    free_tier_limit: number | null;
+    monthly_price: number | null;
+  };
 }
 
 export interface DiscoverResponse {
@@ -312,6 +340,11 @@ export function rowToService(row: ServiceRow): Service {
       : null,
     required_env: safeParseJson<EnvRequirement[]>((row as any).required_env, null) ?? null,
     tools_provided: safeParseJson<ToolProvided[]>((row as any).tools_provided, null) ?? null,
+    pricing_model: (row as any).pricing_model ?? null,
+    cost_per_call: (row as any).cost_per_call ?? null,
+    free_tier_limit: (row as any).free_tier_limit ?? null,
+    monthly_price: (row as any).monthly_price ?? null,
+    pricing_details: safeParseJson<Record<string, any>>((row as any).pricing_details, null),
   };
 }
 
