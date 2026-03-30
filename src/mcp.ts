@@ -53,6 +53,7 @@ export class DisvrMcpAgent extends McpAgent<Env> {
                   match_reason: r.reason,
                   type: r.type,
                   ...(r.install ? { install: r.install } : {}),
+                  ...(r.health ? { health: r.health } : {}),
                 })),
               }, null, 2),
             },
