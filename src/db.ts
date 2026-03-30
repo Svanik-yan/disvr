@@ -954,6 +954,9 @@ export interface HealthSummaryInfo {
   error_distribution: Record<string, any> | null;
   primary_error_type: string | null;
   error_count_30d: number;
+  current_version: string | null;
+  last_version_change: string | null;
+  recent_breaking_change: boolean;
 }
 
 export async function getHealthSummaryByIds(
@@ -964,7 +967,7 @@ export async function getHealthSummaryByIds(
   const placeholders = serviceIds.map(() => "?").join(",");
   const rows = await db
     .prepare(
-      `SELECT service_id, overall_status, uptime_30d, last_check_at, install_score, install_difficulty, call_success_rate, probe_type, error_distribution, primary_error_type, error_count_30d FROM health_summary WHERE service_id IN (${placeholders})`
+      `SELECT service_id, overall_status, uptime_30d, last_check_at, install_score, install_difficulty, call_success_rate, probe_type, error_distribution, primary_error_type, error_count_30d, current_version, last_version_change, recent_breaking_change FROM health_summary WHERE service_id IN (${placeholders})`
     )
     .bind(...serviceIds)
     .all();
@@ -989,6 +992,9 @@ export async function getHealthSummaryByIds(
       error_distribution: errorDist,
       primary_error_type: (row.primary_error_type as string) ?? null,
       error_count_30d: (row.error_count_30d as number) ?? 0,
+      current_version: (row.current_version as string) ?? null,
+      last_version_change: (row.last_version_change as string) ?? null,
+      recent_breaking_change: (row.recent_breaking_change as number) === 1,
     });
   }
   return result;

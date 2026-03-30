@@ -182,6 +182,8 @@ export interface Recommendation {
   };
   /** 错误风险画像（有错误历史时提供） */
   error_profile?: ErrorProfile;
+  /** 版本变更警告（近期有 breaking change 时提供） */
+  version_warning?: VersionWarning;
 }
 
 export interface DiscoverResponse {
@@ -268,6 +270,9 @@ export interface HealthSummary {
   error_distribution: Record<string, any> | null;
   primary_error_type: string | null;
   error_count_30d: number;
+  current_version: string | null;
+  last_version_change: string | null;
+  recent_breaking_change: boolean;
   updated_at: string;
 }
 
@@ -304,6 +309,26 @@ export interface ErrorProfile {
   primary_error: ErrorType;
   error_count_30d: number;
   risk_note: string | null;
+}
+
+// ─── Changelog Intelligence Types ───
+
+export interface VersionChange {
+  service_id: string;
+  package_type: 'npm' | 'pypi';
+  version: string;
+  previous_version: string | null;
+  is_breaking: boolean;
+  breaking_reasons: string[];
+  changes: Record<string, any>;
+  published_at: string | null;
+}
+
+export interface VersionWarning {
+  current_version: string;
+  previous_version: string;
+  changed_at: string;
+  message: string;
 }
 
 // ─── Co-occurrence Types ───

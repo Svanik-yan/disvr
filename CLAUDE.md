@@ -59,6 +59,8 @@ src/
 ├── benchmark.ts      # Benchmark engine: scoring, ranking, leaderboards
 ├── benchmark-scenarios.ts # 10 predefined benchmark scenario definitions
 ├── cost.ts           # Cost intelligence: pricing extraction, scoring, batch processing
+├── error-taxonomy.ts # Error classification: status codes + text patterns → 10 error types
+├── changelog.ts      # Version tracking: semver analysis, npm/pypi checks, breaking change detection
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -80,7 +82,9 @@ test/
 ├── install-check.test.ts # install score tests
 ├── probe.test.ts     # live probe tests
 ├── benchmark.test.ts # benchmark scoring & scenarios tests
-└── cost.test.ts      # cost intelligence tests
+├── cost.test.ts      # cost intelligence tests
+├── error-taxonomy.test.ts # error classification tests (51 tests)
+└── changelog.test.ts # version tracking & breaking change tests (33 tests)
 ```
 
 ## Routes
@@ -119,8 +123,14 @@ test/
 | POST | /admin/health-check | Admin | Run health checks |
 | POST | /admin/probe | Admin | Trigger live probes |
 | POST | /admin/cooccurrence | Admin | Trigger co-occurrence aggregation |
+| GET | /api/errors/summary | No | Error classification summary (30d) |
+| GET | /api/errors/:serviceId | No | Service error profile & recent errors |
+| GET | /api/versions/:serviceId | No | Service version history |
+| GET | /api/breaking-changes | No | Recent breaking changes (default 7 days) |
+| POST | /admin/version-check | Admin | Trigger version checks |
 | POST | /admin/extract-cost | Admin | Extract cost intelligence from services |
 | POST | /admin/benchmark | Admin | Run benchmark across all scenarios |
+| POST | /admin/classify-errors | Admin | Run error classification pipeline |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
 ## Deployment
@@ -139,7 +149,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 342 tests, ~290ms
+npx vitest run          # 426 tests, ~346ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.

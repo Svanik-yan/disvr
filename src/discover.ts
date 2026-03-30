@@ -226,6 +226,21 @@ export async function searchServices(
           },
         };
       })(),
+      ...(() => {
+        if (!healthInfo?.recent_breaking_change || !healthInfo.last_version_change || !healthInfo.current_version) return {};
+        const changedAt = new Date(healthInfo.last_version_change);
+        const now = new Date();
+        const daysSinceChange = (now.getTime() - changedAt.getTime()) / (1000 * 60 * 60 * 24);
+        if (daysSinceChange > 7) return {};
+        return {
+          version_warning: {
+            current_version: healthInfo.current_version,
+            previous_version: "", // filled from version_history if needed
+            changed_at: healthInfo.last_version_change.slice(0, 10),
+            message: `Breaking change detected ${Math.round(daysSinceChange)} day${Math.round(daysSinceChange) !== 1 ? "s" : ""} ago. Consider pinning to previous version.`,
+          },
+        };
+      })(),
     };
   });
 
@@ -249,6 +264,15 @@ export async function searchServices(
         rec.value_score = Math.round(Math.max(0, rec.value_score - 0.15) * 100) / 100;
       }
       // rate_limited with count >= 5: no penalty, risk_note already attached
+    }
+
+    // Breaking change penalty: -0.1 if within 3 days
+    if (rec.version_warning) {
+      const changedAt = new Date(rec.version_warning.changed_at);
+      const daysSince = (Date.now() - changedAt.getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSince <= 3) {
+        rec.value_score = Math.round(Math.max(0, rec.value_score - 0.1) * 100) / 100;
+      }
     }
   }
   recommendations.sort((a, b) => {
