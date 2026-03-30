@@ -8,6 +8,8 @@ import { runHealthChecks } from "./health.js";
 import { runCooccurrenceAggregation, getCooccurrences } from "./cooccurrence.js";
 import { getAlternatives, getDeprecationOverview } from "./alternatives.js";
 import { runLiveProbes } from "./probe.js";
+import { seedScenarios, runFullBenchmark, getScenarioLeaderboard, getBenchmarkOverview, matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
+import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
@@ -17,6 +19,7 @@ import { registryPageHtml } from "./pages/registry.js";
 import { explorerPageHtml } from "./pages/explorer.js";
 import { analyticsPageHtml } from "./pages/analytics.js";
 import { keysPageHtml } from "./pages/keys.js";
+import { benchmarkPageHtml } from "./pages/benchmark.js";
 import { FAVICON_32_B64, APPLE_TOUCH_B64, ICON_192_B64 } from "./icons.js";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -52,6 +55,7 @@ app.get("/registry", (c) => c.html(registryPageHtml));
 app.get("/explorer", (c) => c.html(explorerPageHtml));
 app.get("/analytics", (c) => c.html(analyticsPageHtml));
 app.get("/keys", (c) => c.html(keysPageHtml));
+app.get("/benchmark", (c) => c.html(benchmarkPageHtml));
 
 // Health check
 app.get("/health", async (c) => {
@@ -421,6 +425,34 @@ app.get("/api/cooccurrence/:serviceId", async (c) => {
   return c.json({ success: true, data: results });
 });
 
+// ─── Benchmark API ───
+
+app.get("/api/benchmark", async (c) => {
+  const overview = await getBenchmarkOverview(c.env.DB);
+  return c.json({ success: true, data: overview });
+});
+
+app.get("/api/benchmark/scenarios", async (c) => {
+  return c.json({
+    success: true,
+    data: DEFAULT_SCENARIOS.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      category_match: s.category_match,
+      tags_match: s.tags_match,
+      eval_weights: s.eval_weights,
+    })),
+  });
+});
+
+app.get("/api/benchmark/:scenarioId", async (c) => {
+  const scenarioId = c.req.param("scenarioId");
+  const limit = Math.min(50, Math.max(1, parseInt(c.req.query("limit") || "20") || 20));
+  const entries = await getScenarioLeaderboard(c.env.DB, scenarioId, limit);
+  return c.json({ success: true, data: entries });
+});
+
 // Admin auth middleware — requires ADMIN_KEY env var
 app.use("/admin/*", async (c, next) => {
   const adminKey = (c.env as any).ADMIN_KEY;
@@ -529,6 +561,13 @@ app.post("/admin/cooccurrence", async (c) => {
   return c.json({ success: true, data: result });
 });
 
+// Admin: trigger benchmark run
+app.post("/admin/benchmark", async (c) => {
+  await seedScenarios(c.env.DB);
+  const result = await runFullBenchmark(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
 // MCP Server endpoint (Streamable HTTP via Durable Objects)
 const mcpHandler = DisvrMcpAgent.serve("/mcp", { binding: "MCP_AGENT" });
 
@@ -567,8 +606,15 @@ const worker = {
         await runSignalAggregation(env.DB).catch((err) => console.error("Signal aggregation failed:", err));
         // Phase 5: co-occurrence aggregation
         await runCooccurrenceAggregation(env.DB).catch((err) => console.error("Co-occurrence aggregation failed:", err));
-        // Phase 5: auto-enrich README metadata at UTC 1:00 (30 services/day)
+        // Phase 6: daily benchmark at UTC 0
         const hour = new Date().getUTCHours();
+        if (hour === 0) {
+          await seedScenarios(env.DB).catch((err) => console.error("Benchmark seed failed:", err));
+          await runFullBenchmark(env.DB)
+            .then((r) => console.log(`Benchmark: ${r.scenarios_run} scenarios, ${r.total_entries} entries`))
+            .catch((err) => console.error("Benchmark run failed:", err));
+        }
+        // Phase 7: auto-enrich README metadata at UTC 1:00 (30 services/day)
         if (hour === 1) {
           await enrichServices(env.DB, env.OPENAI_API_KEY, { limit: 30 })
             .then((r) => console.log(`Enrich result: ${r.enriched} enriched, ${r.skipped} skipped`))

@@ -6,6 +6,7 @@ import type {
 import { getServicesByIds, searchFTS, getServiceSignals, getHealthSummaryByIds } from "./db.js";
 import { getBatchCooccurrences } from "./cooccurrence.js";
 import { getBatchAlternatives } from "./alternatives.js";
+import { matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -225,7 +226,26 @@ export async function searchServices(
     return diff;
   });
 
-  // Step 6: Spend summary
+  // Step 6: Attach benchmark rank if a matching scenario exists
+  const matchedScenario = matchScenarioFromQuery(request.need);
+  if (matchedScenario) {
+    const benchRanks = await Promise.all(
+      recommendations.map((rec) =>
+        getBenchmarkRankForService(env.DB, rec.service_id, matchedScenario.id)
+      )
+    );
+    for (let i = 0; i < recommendations.length; i++) {
+      if (benchRanks[i]) {
+        (recommendations[i] as any).benchmark_rank = {
+          scenario: matchedScenario.name,
+          rank: benchRanks[i]!.rank,
+          score: benchRanks[i]!.score,
+        };
+      }
+    }
+  }
+
+  // Step 7: Spend summary
   const spendSummary = buildSpendSummary(ranked, request);
 
   return { recommendations, query_id: queryId, spend_summary: spendSummary };

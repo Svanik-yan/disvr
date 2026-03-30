@@ -56,6 +56,8 @@ src/
 ├── alternatives.ts   # Deprecation detection & alternative recommendations
 ├── install-check.ts  # Install score: npm/pypi installability, env docs, difficulty rating
 ├── probe.ts          # Live probes: MCP handshake, HTTP API health check
+├── benchmark.ts      # Benchmark engine: scoring, ranking, leaderboards
+├── benchmark-scenarios.ts # 10 predefined benchmark scenario definitions
 ├── mcp.ts            # MCP Server (discover_services tool)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
@@ -63,6 +65,7 @@ src/
     ├── registry.ts   # Searchable service directory
     ├── explorer.ts   # Interactive API playground
     ├── analytics.ts  # Real-time dashboard
+    ├── benchmark.ts  # Benchmark leaderboard page
     └── keys.ts       # API key registration
 test/
 ├── types.test.ts     # 8 tests
@@ -74,7 +77,8 @@ test/
 ├── cooccurrence.test.ts # co-occurrence tests
 ├── alternatives.test.ts # deprecation & alternatives tests
 ├── install-check.test.ts # install score tests
-└── probe.test.ts     # live probe tests
+├── probe.test.ts     # live probe tests
+└── benchmark.test.ts # benchmark scoring & scenarios tests
 ```
 
 ## Routes
@@ -100,6 +104,10 @@ test/
 | GET | /api/install/:serviceId | No | Install score & difficulty details |
 | GET | /api/probe/:serviceId | No | Live probe details & recent probes |
 | GET | /api/cooccurrence/:serviceId | No | Tool co-occurrence data |
+| GET | /benchmark | No | Benchmark leaderboard page |
+| GET | /api/benchmark | No | Benchmark overview (all scenarios) |
+| GET | /api/benchmark/scenarios | No | List scenario definitions |
+| GET | /api/benchmark/:scenarioId | No | Scenario leaderboard |
 | POST | /admin/crawl | Admin | Trigger manual crawl (smithery/github/mcp_registry/all) |
 | POST | /admin/reindex | Admin | Reindex into Vectorize |
 | POST | /admin/rebuild-fts | Admin | Rebuild FTS5 index |
@@ -107,6 +115,7 @@ test/
 | POST | /admin/health-check | Admin | Run health checks |
 | POST | /admin/probe | Admin | Trigger live probes |
 | POST | /admin/cooccurrence | Admin | Trigger co-occurrence aggregation |
+| POST | /admin/benchmark | Admin | Run benchmark across all scenarios |
 | ALL | /mcp | No | MCP Server (Streamable HTTP) |
 
 ## Deployment
@@ -125,7 +134,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 90 tests, ~170ms
+npx vitest run          # 311 tests, ~260ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.

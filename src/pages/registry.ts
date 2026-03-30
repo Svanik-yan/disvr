@@ -53,6 +53,7 @@ body { background-color: #060e20; color: #dee5ff; font-family: 'Inter', sans-ser
       <a class="text-teal-400 border-b-2 border-teal-400 pb-1" href="/registry">Registry</a>
       <a class="text-slate-400 hover:text-slate-100 transition-colors" href="/explorer">Explorer</a>
       <a class="text-slate-400 hover:text-slate-100 transition-colors" href="/analytics">Analytics</a>
+      <a class="text-slate-400 hover:text-slate-100 transition-colors" href="/benchmark">Benchmark</a>
       <a class="text-slate-400 hover:text-slate-100 transition-colors" href="/keys">Get API Key</a>
     </div>
   </div>
