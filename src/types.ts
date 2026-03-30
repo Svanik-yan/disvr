@@ -184,6 +184,8 @@ export interface Recommendation {
   error_profile?: ErrorProfile;
   /** 版本变更警告（近期有 breaking change 时提供） */
   version_warning?: VersionWarning;
+  /** 失败处理提示（有错误历史时预生成） */
+  failover_hint?: FailoverHint;
 }
 
 export interface DiscoverResponse {
@@ -380,6 +382,32 @@ export interface DeprecationWarning {
   status: string;
   message: string;
   alternatives: Alternative[];
+}
+
+// ─── Failover Types ───
+
+export type FailoverAction = 'retry' | 'retry_with_delay' | 'check_config' | 'switch_tool' | 'give_up';
+
+export interface FailoverAdvice {
+  action: FailoverAction;
+  reason: string;
+  details: {
+    retry_after_seconds?: number;
+    config_hint?: string;
+    alternative_tools?: Array<{
+      id: string;
+      name: string;
+      value_score: number;
+      health_status: string;
+    }>;
+    max_retries?: number;
+  };
+  confidence: number;
+}
+
+export interface FailoverHint {
+  likely_error: string;
+  advice: string;
 }
 
 // ─── Converters ───

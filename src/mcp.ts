@@ -4,6 +4,7 @@ import { z } from "zod";
 import { searchServices } from "./discover.js";
 import { getServiceCount, getServiceDetail, getServicesPaginated, insertReport } from "./db.js";
 import { getAlternatives } from "./alternatives.js";
+import { getFailoverAdvice } from "./failover.js";
 import type { Env } from "./types.js";
 
 export class DisvrMcpAgent extends McpAgent<Env> {
@@ -58,6 +59,7 @@ export class DisvrMcpAgent extends McpAgent<Env> {
                   ...(r.commonly_used_with?.length ? { commonly_used_with: r.commonly_used_with } : {}),
                   ...(r.deprecation_warning ? { deprecation_warning: r.deprecation_warning } : {}),
                   ...(r.version_warning ? { version_warning: r.version_warning } : {}),
+                  ...(r.failover_hint ? { failover_hint: r.failover_hint } : {}),
                 })),
               }, null, 2),
             },
@@ -207,7 +209,37 @@ export class DisvrMcpAgent extends McpAgent<Env> {
       }
     );
 
-    // ─── Tool 5: get_alternatives ───
+    // ─── Tool 5: get_failover_advice ───
+    // Agent asks what to do after a tool call fails
+
+    this.server.tool(
+      "get_failover_advice",
+      "Get advice on what to do when a tool call fails. Returns recommended action (retry, wait, switch tool) based on the error type and service health.",
+      {
+        service_id: z.string().describe("The ID of the tool that failed"),
+        error_type: z.string().describe("Type of error: auth_failure, rate_limited, timeout, server_error, schema_mismatch, connection_refused, deprecated, not_found, unknown"),
+        status_code: z.number().optional().describe("HTTP status code (optional)"),
+        error_message: z.string().optional().describe("Error message text (optional)"),
+        retry_count: z.number().optional().describe("How many times you have already retried (optional, default 0)"),
+      },
+      async (params) => {
+        const advice = await getFailoverAdvice(this.env.DB, params.service_id, params.error_type, {
+          status_code: params.status_code,
+          error_message: params.error_message,
+          retry_count: params.retry_count ?? 0,
+        });
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(advice, null, 2),
+            },
+          ],
+        };
+      }
+    );
+
+    // ─── Tool 6: get_alternatives ───
     // Find healthy replacements for degraded/dead tools
 
     this.server.tool(

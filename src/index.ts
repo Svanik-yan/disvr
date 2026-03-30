@@ -13,6 +13,7 @@ import { runCostExtraction } from "./cost.js";
 import { runErrorClassification, cleanupOldErrors } from "./error-taxonomy.js";
 import { runVersionChecks, getVersionHistory, getRecentBreakingChanges } from "./changelog.js";
 import { recordDiscovery, recordReport, aggregateProfiles, getAgentProfile, personalizeRanking, getFailedTools, cleanupInactiveProfiles } from "./agent-profile.js";
+import { getFailoverAdvice } from "./failover.js";
 import { DEFAULT_SCENARIOS } from "./benchmark-scenarios.js";
 import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
@@ -821,6 +822,44 @@ app.get("/api/profile", async (c) => {
     return c.json({ error: "No profile yet. Use /discover to start building your profile." }, 404);
   }
   return c.json({ success: true, data: profile });
+});
+
+// ─── Failover Advisor API ───
+
+app.post("/api/failover", async (c) => {
+  // Bearer auth (same as /discover)
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json(
+      { error: "unauthorized", message: "Missing or invalid Authorization header. Use: Bearer <api-key>" },
+      401
+    );
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  let body: { service_id?: string; error_type?: string; status_code?: number; error_message?: string; retry_count?: number };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid_json", message: "Request body must be valid JSON." }, 400);
+  }
+
+  if (!body.service_id || !body.error_type) {
+    return c.json({ error: "bad_request", message: "service_id and error_type are required." }, 400);
+  }
+
+  const advice = await getFailoverAdvice(c.env.DB, body.service_id, body.error_type, {
+    status_code: body.status_code,
+    error_message: body.error_message,
+    retry_count: body.retry_count,
+  });
+
+  return c.json({ success: true, data: advice });
 });
 
 // ─── Changelog Intelligence API ───
