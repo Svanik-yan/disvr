@@ -5,6 +5,7 @@ import {
   updateServiceReliability,
   cleanupOldHealthChecks,
 } from "./db.js";
+import { runInstallChecks } from "./install-check.js";
 
 const TIMEOUT_MS = 5000;
 
@@ -503,7 +504,7 @@ export async function runHealthChecks(
   db: D1Database,
   batchSize: number = 50,
   githubToken?: string
-): Promise<{ checked: number; healthy: number; degraded: number; dead: number }> {
+): Promise<{ checked: number; healthy: number; degraded: number; dead: number; install?: { checked: number; easy: number; medium: number; hard: number; broken: number } }> {
   // 1. Find services most in need of checking
   const rows = await db
     .prepare(
@@ -519,7 +520,8 @@ export async function runHealthChecks(
     return { checked: 0, healthy: 0, degraded: 0, dead: 0 };
   }
 
-  const stats = { checked: 0, healthy: 0, degraded: 0, dead: 0 };
+  const stats: { checked: number; healthy: number; degraded: number; dead: number; install?: { checked: number; easy: number; medium: number; hard: number; broken: number } } = { checked: 0, healthy: 0, degraded: 0, dead: 0 };
+  const checkedServices: Service[] = [];
 
   // 2. Process in sub-batches of 10
   const services = rows.results as any[];
@@ -555,6 +557,7 @@ export async function runHealthChecks(
                 min_version: row.runtime_version,
               }
             : null,
+          required_env: safeParseJson(row.required_env, null),
         };
 
         const results = await checkService(service, githubToken);
@@ -634,9 +637,20 @@ export async function runHealthChecks(
       }
 
       stats.checked++;
+      checkedServices.push(service);
       if (overall_status === "healthy") stats.healthy++;
       else if (overall_status === "degraded") stats.degraded++;
       else if (overall_status === "dead") stats.dead++;
+    }
+  }
+
+  // 9. Run install checks on the same batch of services
+  if (checkedServices.length > 0) {
+    try {
+      const installResult = await runInstallChecks(db, checkedServices);
+      stats.install = installResult;
+    } catch (err) {
+      console.error("Install checks failed:", err);
     }
   }
 

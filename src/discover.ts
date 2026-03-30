@@ -182,6 +182,8 @@ export async function searchServices(
               status: healthInfo.status,
               uptime_30d: healthInfo.uptime_30d,
               last_checked: healthInfo.last_check_at,
+              ...(healthInfo.install_score !== null ? { install_score: healthInfo.install_score } : {}),
+              ...(healthInfo.install_difficulty ? { install_difficulty: healthInfo.install_difficulty } : {}),
             },
           }
         : {}),
@@ -200,7 +202,18 @@ export async function searchServices(
     };
   });
 
-  // Step 5: Spend summary
+  // Step 5: Tiebreaker — when value_scores are close, prefer easier install
+  recommendations.sort((a, b) => {
+    const diff = b.value_score - a.value_score;
+    if (Math.abs(diff) < 0.01) {
+      const aInstall = a.health?.install_score ?? 0;
+      const bInstall = b.health?.install_score ?? 0;
+      return bInstall - aInstall;
+    }
+    return diff;
+  });
+
+  // Step 6: Spend summary
   const spendSummary = buildSpendSummary(ranked, request);
 
   return { recommendations, query_id: queryId, spend_summary: spendSummary };

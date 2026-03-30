@@ -229,6 +229,9 @@ export interface HealthSummary {
   uptime_30d: number;
   avg_response_ms: number | null;
   last_check_at: string | null;
+  install_score: number | null;
+  install_difficulty: string | null;
+  install_details: Record<string, any> | null;
   updated_at: string;
 }
 
