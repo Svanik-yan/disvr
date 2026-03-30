@@ -150,6 +150,8 @@ export interface Recommendation {
   };
   /** 常见搭配工具（可选，有则提供） */
   commonly_used_with?: CooccurrenceResult[];
+  /** 弃用警告（工具不健康时提供） */
+  deprecation_warning?: DeprecationWarning;
 }
 
 export interface DiscoverResponse {
@@ -249,6 +251,23 @@ export interface CooccurrenceResult {
   service_id: string;
   name: string;
   co_count: number;
+}
+
+// ─── Alternative / Deprecation Types ───
+
+export interface Alternative {
+  id: string;
+  name: string;
+  description: string;
+  value_score: number;
+  health_status: string;
+  reason: string;
+}
+
+export interface DeprecationWarning {
+  status: string;
+  message: string;
+  alternatives: Alternative[];
 }
 
 // ─── Converters ───

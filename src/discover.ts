@@ -5,6 +5,7 @@ import type {
 } from "./types.js";
 import { getServicesByIds, searchFTS, getServiceSignals, getHealthSummaryByIds } from "./db.js";
 import { getBatchCooccurrences } from "./cooccurrence.js";
+import { getBatchAlternatives } from "./alternatives.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -162,15 +163,17 @@ export async function searchServices(
 
   // Step 4: Build recommendations with spend intelligence + health info
   const topIds = topN.map((item) => item.service.id);
-  const [healthMap, cooccurrenceMap] = await Promise.all([
+  const [healthMap, cooccurrenceMap, alternativesMap] = await Promise.all([
     getHealthSummaryByIds(env.DB, topIds),
     getBatchCooccurrences(env.DB, topIds),
+    getBatchAlternatives(env.DB, topIds),
   ]);
 
   const recommendations: Recommendation[] = topN.map((item) => {
     const rec = buildRecommendation(item.service, item.similarity, item.valueScore, request);
     const healthInfo = healthMap.get(item.service.id);
     const coItems = cooccurrenceMap.get(item.service.id);
+    const alts = alternativesMap.get(item.service.id);
     return {
       ...rec,
       ...(healthInfo?.last_check_at
@@ -184,6 +187,15 @@ export async function searchServices(
         : {}),
       ...(coItems && coItems.length > 0
         ? { commonly_used_with: coItems }
+        : {}),
+      ...(alts && alts.length > 0
+        ? {
+            deprecation_warning: {
+              status: healthInfo?.status ?? "degraded",
+              message: `This tool is ${healthInfo?.status ?? "degraded"}. Consider these alternatives.`,
+              alternatives: alts,
+            },
+          }
         : {}),
     };
   });
