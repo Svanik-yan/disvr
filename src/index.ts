@@ -19,6 +19,7 @@ import { enrichServices } from "./enrich.js";
 import { runSignalAggregation } from "./signals.js";
 import { getAllServices } from "./db.js";
 import { DisvrMcpAgent } from "./mcp.js";
+import { addWatch, removeWatch, getWatchList, generateAlerts, getAlerts, getAlertSummary, cleanupOldAlerts, shouldSuggestWatch } from "./watch.js";
 import { landingPageHtml } from "./landing.js";
 import { registryPageHtml } from "./pages/registry.js";
 import { explorerPageHtml } from "./pages/explorer.js";
@@ -864,6 +865,111 @@ app.post("/api/failover", async (c) => {
   return c.json({ success: true, data: advice });
 });
 
+// ─── Tool Watch & Alerts API ───
+
+// Get alerts (must be before /:serviceId to avoid route conflict)
+app.get("/api/watch/alerts", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized", message: "Missing API key." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  const since = c.req.query("since") || undefined;
+  const severity = c.req.query("severity") || undefined;
+  const limit = Number(c.req.query("limit") || 50);
+  const alerts = await getAlerts(c.env.DB, keyHash, { since, severity, limit });
+  return c.json({ success: true, data: alerts });
+});
+
+// Get alert summary (must be before /:serviceId)
+app.get("/api/watch/summary", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized", message: "Missing API key." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  const summary = await getAlertSummary(c.env.DB, keyHash);
+  return c.json({ success: true, data: summary });
+});
+
+// Subscribe to tool
+app.post("/api/watch", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized", message: "Missing API key." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  let body: { service_id?: string };
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "invalid_json", message: "Request body must be valid JSON." }, 400);
+  }
+
+  if (!body.service_id) {
+    return c.json({ error: "missing_fields", message: "service_id is required." }, 400);
+  }
+
+  const result = await addWatch(c.env.DB, keyHash, body.service_id);
+  if (!result.success) {
+    return c.json({ error: "watch_limit", message: result.error }, 400);
+  }
+  return c.json({ success: true });
+});
+
+// Get watch list
+app.get("/api/watch", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized", message: "Missing API key." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  const list = await getWatchList(c.env.DB, keyHash);
+  return c.json({ success: true, data: list });
+});
+
+// Unsubscribe from tool
+app.delete("/api/watch/:serviceId", async (c) => {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "unauthorized", message: "Missing API key." }, 401);
+  }
+  const token = authHeader.slice(7);
+  const keyHash = await hashKey(token);
+  const apiKey = await validateApiKey(c.env.DB, keyHash);
+  if (!apiKey) {
+    return c.json({ error: "unauthorized", message: "Invalid API key." }, 401);
+  }
+
+  const serviceId = c.req.param("serviceId");
+  await removeWatch(c.env.DB, keyHash, serviceId);
+  return c.json({ success: true });
+});
+
 // ─── Changelog Intelligence API ───
 
 app.get("/api/versions/:serviceId", async (c) => {
@@ -1071,6 +1177,12 @@ app.get("/api/profiles/stats", async (c) => {
   });
 });
 
+// Admin: generate watch alerts
+app.post("/admin/generate-alerts", async (c) => {
+  const result = await generateAlerts(c.env.DB);
+  return c.json({ success: true, data: result });
+});
+
 // MCP Server endpoint (Streamable HTTP via Durable Objects)
 const mcpHandler = DisvrMcpAgent.serve("/mcp", { binding: "MCP_AGENT" });
 
@@ -1121,6 +1233,10 @@ const worker = {
         await aggregateProfiles(env.DB, 50)
           .then((r) => console.log(`Profile aggregation: ${r.profiles_updated} updated`))
           .catch((err) => console.error("Profile aggregation failed:", err));
+        // Phase 5e: generate watch alerts (after health checks + version checks)
+        await generateAlerts(env.DB)
+          .then((r) => console.log(`Watch alerts: ${r.alerts_created} created`))
+          .catch((err) => console.error("Watch alert generation failed:", err));
         // Phase 6: daily benchmark at UTC 0
         const hour = new Date().getUTCHours();
         if (hour === 0) {
@@ -1130,6 +1246,7 @@ const worker = {
             .catch((err) => console.error("Benchmark run failed:", err));
           await cleanupOldErrors(env.DB, 60).catch((err) => console.error("Error cleanup failed:", err));
           await cleanupInactiveProfiles(env.DB, 90).catch((err) => console.error("Profile cleanup failed:", err));
+          await cleanupOldAlerts(env.DB, 30).catch((err) => console.error("Alert cleanup failed:", err));
         }
         // Phase 7: auto-enrich README metadata at UTC 1:00 (30 services/day)
         if (hour === 1) {
