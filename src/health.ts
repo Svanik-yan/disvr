@@ -465,17 +465,18 @@ export function computeOverallStatus(
 
   if (allAlive) {
     // Check freshness based on lastUpdated
+    // Only failed checks should mark as degraded — alive tools stay healthy
     if (lastUpdated) {
       const daysSince =
         (Date.now() - new Date(lastUpdated).getTime()) / (1000 * 60 * 60 * 24);
-      if (daysSince <= 30) {
+      if (daysSince <= 90) {
         return { overall_status: "healthy", reliability: 1.0 };
       }
-      if (daysSince <= 90) {
+      if (daysSince <= 180) {
         return { overall_status: "healthy", reliability: 0.8 };
       }
-      if (daysSince <= 180) {
-        return { overall_status: "degraded", reliability: 0.6 };
+      if (daysSince <= 365) {
+        return { overall_status: "healthy", reliability: 0.6 };
       }
       return { overall_status: "degraded", reliability: 0.5 };
     }

@@ -84,9 +84,9 @@ export function scoreFreshness(lastUpdated: string | null): number {
   const days = Math.floor(
     (Date.now() - new Date(lastUpdated).getTime()) / (1000 * 60 * 60 * 24)
   );
-  if (days < 30) return 100;
-  if (days < 90) return 80;
-  if (days < 180) return 50;
+  if (days < 90) return 100;
+  if (days < 180) return 80;
+  if (days < 365) return 50;
   return 20;
 }
 

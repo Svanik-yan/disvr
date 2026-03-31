@@ -219,12 +219,25 @@ app.post("/report", async (c) => {
     return c.json({ error: "invalid_json", message: "Request body must be valid JSON." }, 400);
   }
 
-  if (!body.service_id || !body.query_id) {
-    return c.json({ error: "missing_fields", message: "service_id and query_id are required." }, 400);
+  if (!body.service_id) {
+    return c.json({ error: "missing_fields", message: "service_id is required." }, 400);
   }
 
+  // Fill defaults for optional fields to avoid DB insert failures
+  const normalizedReport: CallReport = {
+    service_id: body.service_id,
+    query_id: body.query_id ?? crypto.randomUUID(),
+    success: body.success ?? false,
+    actual_latency_ms: body.actual_latency_ms ?? 0,
+    actual_cost_usd: body.actual_cost_usd ?? 0,
+    retried: body.retried ?? false,
+    retry_count: body.retry_count ?? 0,
+    human_escalated: body.human_escalated ?? false,
+    task_context: body.task_context ?? null,
+  };
+
   const reportStartTime = Date.now();
-  await insertCallReport(c.env.DB, body, keyHash);
+  await insertCallReport(c.env.DB, normalizedReport, keyHash);
 
   // Log report + record agent usage (non-blocking)
   c.executionCtx.waitUntil(
@@ -232,11 +245,11 @@ app.post("/report", async (c) => {
       logRequest(c.env.DB, {
         api_key_hash: keyHash,
         endpoint: "/report",
-        query_id: body.query_id,
+        query_id: normalizedReport.query_id,
         status_code: 200,
         latency_ms: Date.now() - reportStartTime,
       }),
-      recordReport(c.env.DB, keyHash, body.service_id, body.success),
+      recordReport(c.env.DB, keyHash, normalizedReport.service_id, normalizedReport.success),
     ])
   );
 
