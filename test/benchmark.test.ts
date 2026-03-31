@@ -90,23 +90,23 @@ describe("scoreFreshness", () => {
     expect(scoreFreshness(null)).toBe(40);
   });
 
-  it("returns 100 for recent updates (<30 days)", () => {
+  it("returns 100 for recent updates (<90 days)", () => {
     const recent = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
     expect(scoreFreshness(recent)).toBe(100);
   });
 
-  it("returns 80 for updates 30-90 days ago", () => {
-    const date = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+  it("returns 80 for updates 90-180 days ago", () => {
+    const date = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
     expect(scoreFreshness(date)).toBe(80);
   });
 
-  it("returns 50 for updates 90-180 days ago", () => {
-    const date = new Date(Date.now() - 120 * 24 * 60 * 60 * 1000).toISOString();
+  it("returns 50 for updates 180-365 days ago", () => {
+    const date = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000).toISOString();
     expect(scoreFreshness(date)).toBe(50);
   });
 
-  it("returns 20 for updates >180 days ago", () => {
-    const date = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+  it("returns 20 for updates >365 days ago", () => {
+    const date = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString();
     expect(scoreFreshness(date)).toBe(20);
   });
 });

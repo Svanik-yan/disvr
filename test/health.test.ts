@@ -218,14 +218,14 @@ describe("computeOverallStatus", () => {
     expect(result.reliability).toBe(1.0);
   });
 
-  it("returns healthy with 0.8 when all alive and updated 60 days ago", () => {
+  it("returns healthy with 1.0 when all alive and updated 60 days ago", () => {
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
     const result = computeOverallStatus(
       [{ service_id: "s1", check_type: "github", status: "alive", response_time_ms: 100, details: {} }],
       sixtyDaysAgo
     );
     expect(result.overall_status).toBe("healthy");
-    expect(result.reliability).toBe(0.8);
+    expect(result.reliability).toBe(1.0);
   });
 
   it("returns degraded with 0.5 when has stale", () => {
