@@ -70,6 +70,7 @@ src/
     ├── explorer.ts   # Interactive API playground
     ├── analytics.ts  # Real-time dashboard
     ├── benchmark.ts  # Benchmark leaderboard page
+    ├── service-detail.ts # Service detail page (dynamic, all data sections)
     └── keys.ts       # API key registration
 test/
 ├── types.test.ts     # 8 tests
@@ -86,7 +87,8 @@ test/
 ├── cost.test.ts      # cost intelligence tests
 ├── error-taxonomy.test.ts # error classification tests (51 tests)
 ├── changelog.test.ts # version tracking & breaking change tests (33 tests)
-└── agent-profile.test.ts # agent profiling & personalization tests (22 tests)
+├── agent-profile.test.ts # agent profiling & personalization tests (22 tests)
+└── frontend-enhance.test.ts # frontend enhancement tests (14 tests)
 ```
 
 ## Routes
@@ -101,7 +103,9 @@ test/
 | GET | /health | No | Health check |
 | POST | /discover | Bearer | Main discovery endpoint |
 | POST | /report | Bearer | Call report feedback |
-| GET | /api/services | No | Paginated service listing |
+| GET | /registry/:serviceId | No | Service detail page |
+| GET | /api/services | No | Paginated service listing (with health/pricing/install filters) |
+| GET | /api/services/:id/detail | No | Aggregated service detail (health+cost+errors+versions+benchmarks) |
 | GET | /api/stats | No | System statistics |
 | GET | /api/analytics | No | Request analytics (daily calls, top queries) |
 | POST | /api/register | No | Generate API key |
@@ -154,7 +158,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 448 tests, ~359ms
+npx vitest run          # 462 tests, ~367ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.

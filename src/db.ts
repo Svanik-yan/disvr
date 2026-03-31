@@ -376,49 +376,101 @@ export async function getServiceCount(db: D1Database): Promise<number> {
 
 export async function getServicesPaginated(
   db: D1Database,
-  options: { page: number; limit: number; search?: string; platform?: string; sort?: string }
-): Promise<{ services: Service[]; total: number; page: number; limit: number }> {
-  const { page, limit, search, platform, sort } = options;
+  options: {
+    page: number;
+    limit: number;
+    search?: string;
+    platform?: string;
+    sort?: string;
+    health?: string;
+    pricing?: string;
+    install?: string;
+  }
+): Promise<{ services: ServiceWithMeta[]; total: number; page: number; limit: number }> {
+  const { page, limit, search, platform, sort, health, pricing, install } = options;
   const offset = (page - 1) * limit;
   const conditions: string[] = [];
   const params: (string | number)[] = [];
   let paramIdx = 1;
 
   if (search && search.trim().length > 0) {
-    conditions.push(`(name LIKE ?${paramIdx} OR description LIKE ?${paramIdx})`);
+    conditions.push(`(s.name LIKE ?${paramIdx} OR s.description LIKE ?${paramIdx})`);
     params.push(`%${search.trim()}%`);
     paramIdx++;
   }
   if (platform && platform !== "all") {
-    conditions.push(`platform = ?${paramIdx}`);
+    conditions.push(`s.platform = ?${paramIdx}`);
     params.push(platform);
     paramIdx++;
   }
+  if (health && health !== "all") {
+    conditions.push(`h.overall_status = ?${paramIdx}`);
+    params.push(health);
+    paramIdx++;
+  }
+  if (pricing && pricing !== "all") {
+    conditions.push(`s.pricing_model = ?${paramIdx}`);
+    params.push(pricing);
+    paramIdx++;
+  }
+  if (install && install !== "all") {
+    conditions.push(`h.install_difficulty = ?${paramIdx}`);
+    params.push(install);
+    paramIdx++;
+  }
 
+  const joinClause = "LEFT JOIN health_summary h ON s.id = h.service_id";
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-  let orderBy = "ORDER BY reputation_score DESC NULLS LAST";
-  if (sort === "name") orderBy = "ORDER BY name ASC";
-  else if (sort === "calls") orderBy = "ORDER BY total_calls DESC";
-  else if (sort === "price") orderBy = "ORDER BY json_extract(pricing, '$.price_usd') ASC";
+  let orderBy = "ORDER BY s.reputation_score DESC NULLS LAST";
+  if (sort === "name") orderBy = "ORDER BY s.name ASC";
+  else if (sort === "calls") orderBy = "ORDER BY s.total_calls DESC";
+  else if (sort === "price") orderBy = "ORDER BY json_extract(s.pricing, '$.price_usd') ASC";
+  else if (sort === "health") orderBy = "ORDER BY CASE h.overall_status WHEN 'healthy' THEN 0 WHEN 'degraded' THEN 1 WHEN 'dead' THEN 2 ELSE 3 END ASC";
+  else if (sort === "install") orderBy = "ORDER BY h.install_score DESC NULLS LAST";
 
   const countResult = await db
-    .prepare(`SELECT COUNT(*) as count FROM services ${where}`)
+    .prepare(`SELECT COUNT(*) as count FROM services s ${joinClause} ${where}`)
     .bind(...params)
     .first<{ count: number }>();
   const total = countResult?.count ?? 0;
 
   const result = await db
-    .prepare(`SELECT * FROM services ${where} ${orderBy} LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`)
+    .prepare(
+      `SELECT s.*, h.overall_status as health_status, h.uptime_30d as health_uptime,
+              h.install_score, h.install_difficulty,
+              h.error_count_30d, h.primary_error_type,
+              h.current_version, h.recent_breaking_change
+       FROM services s ${joinClause} ${where} ${orderBy}
+       LIMIT ?${paramIdx} OFFSET ?${paramIdx + 1}`
+    )
     .bind(...params, limit, offset)
-    .all<ServiceRow>();
+    .all();
 
-  return {
-    services: (result.results ?? []).map(rowToService),
-    total,
-    page,
-    limit,
-  };
+  const services: ServiceWithMeta[] = (result.results ?? []).map((row: any) => ({
+    ...rowToService(row as ServiceRow),
+    health_status: row.health_status ?? "unknown",
+    health_uptime: row.health_uptime ?? 0,
+    install_score: row.install_score ?? null,
+    install_difficulty: row.install_difficulty ?? null,
+    error_count_30d: row.error_count_30d ?? 0,
+    primary_error_type: row.primary_error_type ?? null,
+    current_version: row.current_version ?? null,
+    recent_breaking_change: (row.recent_breaking_change ?? 0) === 1,
+  }));
+
+  return { services, total, page, limit };
+}
+
+export interface ServiceWithMeta extends Service {
+  health_status: string;
+  health_uptime: number;
+  install_score: number | null;
+  install_difficulty: string | null;
+  error_count_30d: number;
+  primary_error_type: string | null;
+  current_version: string | null;
+  recent_breaking_change: boolean;
 }
 
 // ─── Request Logging ───
