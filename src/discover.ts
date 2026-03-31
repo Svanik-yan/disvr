@@ -10,6 +10,7 @@ import { matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.
 import { generateRiskNote } from "./error-taxonomy.js";
 import { generateFailoverHint } from "./failover.js";
 import type { ErrorType } from "./types.js";
+import { buildContextFilter, applyContextBoost, generateContextReason } from "./context-aware.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_DIMENSIONS = 1536;
@@ -155,7 +156,14 @@ export async function searchServices(
   }
 
   // Step 2: Apply constraints
-  const filtered = applyConstraints(candidates, request);
+  let filtered = applyConstraints(candidates, request);
+
+  // Step 2b: Context-aware exclusion — remove tools the agent already has
+  const contextFilter = buildContextFilter(request.current_tools, request.exclude);
+  if (contextFilter.exclude.length > 0) {
+    const excludeSet = new Set(contextFilter.exclude);
+    filtered = filtered.filter((c) => !excludeSet.has(c.service.id));
+  }
 
   // Step 3: Pre-fetch passive signals for candidate services
   const candidateIds = filtered.map((c) => c.service.id);
@@ -248,6 +256,26 @@ export async function searchServices(
       })(),
     };
   });
+
+  // Step 4b: Context-aware boost — boost tools that co-occur with agent's current stack
+  if (contextFilter.current_tools.length > 0 && recommendations.length > 0) {
+    const boosted = await applyContextBoost(
+      env.DB,
+      recommendations.map((r) => ({ id: r.service_id, value_score: r.value_score })),
+      contextFilter.current_tools
+    );
+    for (const b of boosted) {
+      const rec = recommendations.find((r) => r.service_id === b.id);
+      if (rec && b.context_boost > 0) {
+        rec.value_score = b.value_score;
+        rec.context_boost = b.context_boost;
+        const reason = generateContextReason(rec.service, b.cooccurring_tools);
+        if (reason) {
+          rec.context_reason = reason;
+        }
+      }
+    }
+  }
 
   // Step 5: Apply call_success_rate adjustments + error penalties + tiebreaker
   for (const rec of recommendations) {
