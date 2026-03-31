@@ -8,6 +8,7 @@ import { getBatchCooccurrences } from "./cooccurrence.js";
 import { getBatchAlternatives } from "./alternatives.js";
 import { matchScenarioFromQuery, getBenchmarkRankForService } from "./benchmark.js";
 import { generateRiskNote } from "./error-taxonomy.js";
+import { generateFailoverHint } from "./failover.js";
 import type { ErrorType } from "./types.js";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
@@ -240,6 +241,10 @@ export async function searchServices(
             message: `Breaking change detected ${Math.round(daysSinceChange)} day${Math.round(daysSinceChange) !== 1 ? "s" : ""} ago. Consider pinning to previous version.`,
           },
         };
+      })(),
+      ...(() => {
+        if (!healthInfo || !healthInfo.primary_error_type || healthInfo.error_count_30d < 5) return {};
+        return { failover_hint: generateFailoverHint(healthInfo.primary_error_type) };
       })(),
     };
   });

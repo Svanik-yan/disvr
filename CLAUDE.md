@@ -62,7 +62,8 @@ src/
 ├── error-taxonomy.ts # Error classification: status codes + text patterns → 10 error types
 ├── changelog.ts      # Version tracking: semver analysis, npm/pypi checks, breaking change detection
 ├── agent-profile.ts  # Agent behavioral profiling: usage tracking, personalized ranking
-├── mcp.ts            # MCP Server (discover_services tool)
+├── failover.ts       # Failover advisor: error-based decision engine + alternative lookup
+├── mcp.ts            # MCP Server (6 tools: discover, details, report, list, failover, alternatives)
 ├── types.ts          # All TypeScript types + rowToService
 ├── landing.ts        # Landing page HTML
 └── pages/
@@ -88,7 +89,8 @@ test/
 ├── error-taxonomy.test.ts # error classification tests (51 tests)
 ├── changelog.test.ts # version tracking & breaking change tests (33 tests)
 ├── agent-profile.test.ts # agent profiling & personalization tests (22 tests)
-└── frontend-enhance.test.ts # frontend enhancement tests (14 tests)
+├── frontend-enhance.test.ts # frontend enhancement tests (14 tests)
+└── failover.test.ts  # failover advisor tests (28 tests)
 ```
 
 ## Routes
@@ -133,6 +135,7 @@ test/
 | GET | /api/errors/:serviceId | No | Service error profile & recent errors |
 | GET | /api/versions/:serviceId | No | Service version history |
 | GET | /api/breaking-changes | No | Recent breaking changes (default 7 days) |
+| POST | /api/failover | Bearer | Failover advisor: what to do when a tool fails |
 | GET | /api/profile | Bearer | Agent's own usage profile |
 | GET | /api/profiles/stats | No | Profile stats overview |
 | POST | /admin/aggregate-profiles | Admin | Trigger profile aggregation |
@@ -158,7 +161,7 @@ test/
 ## Testing
 
 ```bash
-npx vitest run          # 462 tests, ~367ms
+npx vitest run          # 490 tests, ~370ms
 ```
 
 Mock D1 for database tests. No `@cloudflare/vitest-pool-workers` — pure unit tests with mocked DB.
