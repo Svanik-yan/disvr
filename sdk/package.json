@@ -1,7 +1,7 @@
 {
   "name": "@sylar_yan/disvr",
   "version": "0.1.0",
-  "description": "Official SDK for Disvr — tool search engine for AI agents",
+  "description": "Official SDK for Disvr — the ranking engine for AI agent tools",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",

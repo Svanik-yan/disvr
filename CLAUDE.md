@@ -1,6 +1,6 @@
 # Disvr — Project Guide
 
-Agent 智能服务发现引擎，帮 AI Agent 找到最值得用的工具。
+The Ranking Engine for AI Agent Tools — MCP 生态的质量情报层。索引 500+ 工具，基于真实使用数据排名，一次 API 调用找到最优工具。
 
 ## Tech Stack
 

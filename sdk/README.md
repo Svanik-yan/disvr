@@ -1,8 +1,8 @@
 # disvr
 
-Official SDK for [Disvr](https://www.disvr.top) — tool search engine for AI agents.
+Official SDK for [Disvr](https://www.disvr.top) — the ranking engine for AI agent tools.
 
-One API call, your agent finds any tool it needs.
+Quality intelligence for the MCP ecosystem — your agent finds the best tool, not just any tool.
 
 ## Install
 

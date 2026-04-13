@@ -8,8 +8,15 @@ export const landingPageHtml = `<!DOCTYPE html>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <link rel="icon" type="image/png" href="/favicon.png"/>
 <link rel="apple-touch-icon" href="/apple-touch-icon.png"/>
-<title>Disvr — The Intelligence Layer for the Agent Economy</title>
-<meta name="description" content="Disvr helps AI agents find the best tools at the best price. Spend intelligence, not just search. MCP Server + REST API."/>
+<title>Disvr — The Ranking Engine for AI Agent Tools</title>
+<meta name="description" content="Quality intelligence for the MCP ecosystem. Index 500+ tools, rank by real usage, find the best one in one API call."/>
+<meta property="og:title" content="Disvr — The Ranking Engine for AI Agent Tools"/>
+<meta property="og:description" content="Quality intelligence for the MCP ecosystem. Index 500+ tools, rank by real usage, find the best one in one API call."/>
+<meta property="og:type" content="website"/>
+<meta property="og:url" content="https://www.disvr.top"/>
+<meta name="twitter:card" content="summary_large_image"/>
+<meta name="twitter:title" content="Disvr — The Ranking Engine for AI Agent Tools"/>
+<meta name="twitter:description" content="Quality intelligence for the MCP ecosystem. Index 500+ tools, rank by real usage, find the best one in one API call."/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -104,11 +111,11 @@ tailwind.config = {
       </div>
 
       <h1 class="font-headline text-6xl md:text-8xl font-extrabold tracking-tighter leading-none text-glow">
-        The Intelligence Layer for the <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Agent Economy</span>
+        The <span class="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">Ranking Engine</span> for AI Agent Tools
       </h1>
 
       <p class="text-on-surface-variant text-xl md:text-2xl max-w-2xl font-light leading-relaxed">
-        Payment protocols solve <em>how to pay</em>. Directories solve <em>what exists</em>. Disvr solves <strong class="text-on-surface">which tool is worth using</strong> &mdash; spend intelligence for AI agents.
+        Quality intelligence for the MCP ecosystem. We index 500+ tools, rank them by real usage signals, and help your agent find the best one in one API call.
       </p>
 
       <div class="flex flex-wrap gap-6 pt-4">
@@ -321,7 +328,7 @@ tailwind.config = {
   <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
     <div class="col-span-1 md:col-span-2">
       <div class="text-2xl font-bold bg-gradient-to-r from-violet-400 to-teal-400 bg-clip-text text-transparent mb-6 font-headline">Disvr</div>
-      <p class="text-on-surface-variant max-w-sm mb-8">The spend intelligence layer for the agent economy. Helping AI agents find the best tools at the best price.</p>
+      <p class="text-on-surface-variant max-w-sm mb-8">Quality intelligence for the MCP ecosystem.</p>
       <div class="flex gap-4">
         <a class="w-10 h-10 rounded-full glass-card flex items-center justify-center hover:bg-primary/20 transition-colors" href="https://github.com/Svanik-yan/disvr" target="_blank" title="GitHub">
           <span class="material-symbols-outlined text-sm">terminal</span>
